@@ -1,0 +1,91 @@
+﻿/* Login.css */
+
+/* Toàn bộ trang login */
+.login-container {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+    background-color: #0d0d0d; /* Màu nền tối */
+}
+
+.login-box {
+    text-align: center;
+    width: 300px;
+}
+
+.login-logo {
+    width: 293px;
+    /* margin-bottom: 20px; */
+}
+
+h2 {
+    color: white;
+    margin-bottom: 20px;
+    font-size: 24px;
+}
+
+.login-form {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+.login-input {
+    width: 100%;
+    padding: 10px;
+    margin-bottom: 15px;
+    border-radius: 5px;
+    border: none;
+    background-color: #333;
+    color: #fff;
+    font-size: 16px;
+}
+
+    .login-input::placeholder {
+        color: #bbb;
+    }
+
+.login-button {
+    width: 100%;
+    padding: 10px;
+    margin-bottom: 20px;
+    background-color: #333;
+    color: #fff;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    font-size: 16px;
+    transition: background-color 0.3s;
+}
+
+    .login-button:hover {
+        background-color: #555;
+    }
+
+.back-button {
+    width: 100%;
+    padding: 10px;
+    margin-bottom: 20px;
+    background-color: #111;
+    color: #fff;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    font-size: 16px;
+    transition: background-color 0.3s;
+}
+
+    .back-button:hover {
+        background-color: #333;
+    }
+
+.help-text {
+    color: #888;
+    font-size: 14px;
+}
+
+    .help-text a {
+        color: #fff;
+        text-decoration: underline;
+    }

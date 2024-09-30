@@ -1,0 +1,219 @@
+﻿/* Toàn bộ khung chat và video */
+.container {
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+    background-color: #1a1a1a;
+    color: white;
+}
+
+.headerr {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px 20px;
+    background-color: #1a1a1a;
+}
+
+.top-bar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    width: 100%;
+}
+
+.icon-left {
+    margin-right: 20px;
+    cursor: pointer;
+    font-size: 20px;
+}
+
+.icon-center {
+    margin-right: 20px;
+    cursor: pointer;
+    font-size: 20px;
+}
+
+.icon-right {
+    margin-left: 20px;
+    cursor: pointer;
+    font-size: 20px;
+}
+.left-header {
+    display: flex;
+    align-items: center;
+}
+
+    .left-header i {
+        margin-right: 10px;
+        cursor: pointer;
+    }
+
+    .left-header h3 {
+        font-size: 16px;
+    }
+
+
+
+.right-header i {
+    margin-left: 20px;
+    cursor: pointer;
+}
+
+.main-content {
+    display: flex;
+    flex: 1;
+    height: 100%; /* Đảm bảo phần chat và video chia đều chiều cao */
+}
+
+.video-section {
+    flex: 2;
+    background-color: #000;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+.chat-section {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    background-color: #1a1a1a;
+    padding: 10px;
+    overflow: hidden; /* Ngăn không cho cuộn toàn bộ phần chat */
+}
+
+/* Chat messages section (đảm bảo chỉ cuộn phần chat) */
+.chat-messages {
+    flex: 1;
+    overflow-y: auto; /* Phần này sẽ cuộn */
+    max-height: calc(100vh - 160px); /* Đặt chiều cao tối đa, đảm bảo nó không mở rộng container */
+    padding-right: 10px;
+    scrollbar-width: thin; /* Thanh cuộn mỏng cho Firefox */
+    scrollbar-color: #888 transparent; /* Màu sắc của thanh cuộn cho Firefox */
+}
+
+    /* Thanh cuộn thon gọn */
+    .chat-messages::-webkit-scrollbar {
+        width: 6px; /* Độ rộng thanh cuộn nhỏ */
+    }
+
+    .chat-messages::-webkit-scrollbar-track {
+        background: transparent; /* Nền trong suốt */
+    }
+
+    .chat-messages::-webkit-scrollbar-thumb {
+        background-color: #888; /* Màu của thanh cuộn */
+        border-radius: 10px; /* Bo góc cho thanh cuộn */
+    }
+
+        .chat-messages::-webkit-scrollbar-thumb:hover {
+            background-color: #555; /* Màu đậm hơn khi hover */
+        }
+
+/* Tin nhắn */
+ul {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+.message-item {
+    display: flex;
+    align-items: flex-start;
+    margin-bottom: 10px;
+}
+
+.message-container {
+    display: flex;
+    align-items: flex-start;
+    max-width: 80%;
+}
+
+.sent-container {
+    justify-content: flex-end;
+    margin-left: auto;
+}
+
+.received-container {
+    justify-content: flex-start;
+}
+
+.message-avatar {
+    margin-right: 10px;
+}
+
+    .message-avatar img {
+        width: 40px;
+        height: 40px;
+        border-radius: 50%;
+    }
+
+.message-content {
+    display: flex;
+    flex-direction: column;
+    padding: 10px;
+    border-radius: 10px;
+    background-color: #2a2a2a;
+    color: white;
+}
+
+.message-text {
+    word-wrap: break-word;
+    max-width: 100%;
+}
+
+.message-time {
+    font-size: 12px;
+    color: #aaa;
+    margin-top: 5px;
+}
+
+.message-item.sent .message-content {
+    background-color: #009688;
+    text-align: right;
+}
+
+.message-item.received .message-content {
+    background-color: #333;
+    text-align: left;
+}
+
+/* Input section */
+.chat-input-container {
+    display: flex;
+    align-items: center;
+    padding: 10px;
+    background-color: #2a2a2a;
+    flex-shrink: 0; /* Không cho phép input thay đổi chiều cao khi nội dung chat dài */
+}
+
+.chat-input {
+    flex: 1;
+    padding: 10px;
+    border: none;
+    border-radius: 20px;
+    background-color: #333;
+    color: white;
+}
+
+.send-button {
+    background-color: #009688;
+    border: none;
+    color: white;
+    padding: 10px 15px;
+    margin-left: 10px;
+    border-radius: 50%;
+    cursor: pointer;
+}
+
+    .send-button i {
+        font-size: 16px;
+    }
+
+.connection-status {
+    padding: 10px;
+    text-align: center;
+    color: red;
+    background-color: #1a1a1a;
+}
