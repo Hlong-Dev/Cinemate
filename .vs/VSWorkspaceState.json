@@ -2,7 +2,10 @@
   "ExpandedNodes": [
     "",
     "\\public",
-    "\\src"
+    "\\src",
+    "\\src\\components",
+    "\\src\\context"
   ],
+  "SelectedNode": "\\src\\ChatRoom.js",
   "PreviewInSolutionExplorer": false
 }
