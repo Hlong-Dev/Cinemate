@@ -42,36 +42,14 @@
     background-color: #1a1a1a;
     color: white;
 }
-.headerr {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 10px 20px;
-    background-color: #1a1a1a;
-}
-.top-bar {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    width: 100%;
-}
 
-.icon-left, .icon-center, .icon-right {
-    cursor: pointer;
-    font-size: 20px;
-}
-
-.left-header, .right-header {
-    display: flex;
-    align-items: center;
-}
 .main-content {
     display: flex;
     flex: 1;
     height: 100%; /* Đảm bảo phần chat và video chia đều chiều cao */
 }
 .video-section {
-    flex: 2;
+    flex: 2.6;
     background-color: #000;
     display: flex;
     justify-content: center;
@@ -124,7 +102,7 @@
 .message-content {
     max-width: 70%;
     word-wrap: break-word; /* Allow text to wrap inside the box */
-    background-color: #f1f0f0;
+ 
     border-radius: 10px;
     padding: 10px;
     margin-top: 5px;
@@ -132,16 +110,17 @@
 
 /* Sent message content styling */
 .sent-container .message-content {
-    background-color: #34b7f1; /* Color for sent messages */
-    margin-left: auto; /* Align sent message content to the right */
-    color: white; /* White text color for better contrast */
+
+    background-color: #f1f0f0; /* Color for received messages */
+    color: black; /* Text color for received messages */
+    margin-left: auto; /* Align received message content to the left */
 }
 
 /* Received message content styling */
 .received-container .message-content {
-    background-color: #f1f0f0; /* Color for received messages */
-    color: black; /* Text color for received messages */
-    margin-right: auto; /* Align received message content to the left */
+    background-color: #363636; /* Color for sent messages */
+    margin-right: auto; /* Align sent message content to the right */
+    color: white; /* White text color for better contrast */
 }
 
 /* Image styling inside the chat */
@@ -151,8 +130,8 @@
 
     .message-image img {
         display: block;
-        max-width: 200px; /* Limit the image size */
-        margin-top: 5px;
+        max-width: 200px !important;
+        margin-top: 5px !important;
         border-radius: 10px; /* Rounded corners for the images */
     }
 
@@ -221,15 +200,31 @@
 }
 .system-notification {
     text-align: center;
-    color: gray;
+    color: #888;
     font-style: italic;
     margin: 10px 0;
+
+    align-items: center;
+    justify-content: center;
 }
 
+    .system-notification .message-avatar {
+        margin-right: 10px;
+    }
+
 .system-message-container {
-    text-align: center;
-    color: gray;
-    font-style: italic;
-    margin: 10px 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+    .system-message-container img {
+        width: 40px;
+        height: 40px;
+        border-radius: 50%;
+    }
+
+.system-notification em {
+    font-size: 0.9em;
 }
 

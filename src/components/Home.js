@@ -3,6 +3,7 @@ import { AuthContext } from '../context/AuthContext';
 import LogoutButton from './LogoutButton';
 import RoomList from '../RoomList';  // Import RoomList component
 import { Link } from 'react-router-dom';
+import '../Home.css';
 
 const Home = () => {
     const [isSidebarOpen, setIsSidebarOpen] = useState(false);

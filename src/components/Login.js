@@ -1,5 +1,4 @@
-﻿// src/components/Login.js
-
+﻿
 import React, { useState } from 'react';
 import axios from 'axios';
 import '../Login.css'; // Import file CSS để định dạng giao diện
