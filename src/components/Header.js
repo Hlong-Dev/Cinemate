@@ -1,10 +1,11 @@
 ﻿import React, { useState } from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faTimes, faBars, faCog, faSearch, faCheck, faUserFriends, faGlobe, faUsers } from '@fortawesome/free-solid-svg-icons';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import '../Header.css';
 
 const Header = ({ usersInRoom }) => {
+    const { roomId } = useParams(); // Lấy roomId từ URL
     const [showPopup, setShowPopup] = useState(false);
     const [showUserList, setShowUserList] = useState(false); // Trạng thái để hiển thị danh sách người dùng
     const navigate = useNavigate();
@@ -13,9 +14,30 @@ const Header = ({ usersInRoom }) => {
         setShowPopup(true); // Hiển thị popup khi bấm nút X
     };
 
-    const handleLeaveConfirm = () => {
+    const handleLeaveConfirm = async () => {
         setShowPopup(false);
-        navigate('/home'); // Điều hướng về trang home
+        const token = localStorage.getItem('token'); // Lấy mã JWT từ localStorage
+
+        try {
+            console.log("Sending DELETE request to server...");
+
+            const response = await fetch(`http://localhost:8080/api/rooms/${roomId}`, {
+                method: 'DELETE',
+                headers: {
+                    'Authorization': `Bearer ${token}`, // Đính kèm mã JWT
+                },
+            });
+
+            // Kiểm tra xem yêu cầu DELETE có thành công không
+            if (!response.ok) {
+                throw new Error(`Server responded with status: ${response.status}`);
+            }
+
+            console.log("Room deleted successfully");
+            navigate('/home'); // Điều hướng về trang home sau khi xóa thành công
+        } catch (error) {
+            console.error('Error deleting room:', error);
+        }
     };
 
     const handleStay = () => {
@@ -41,12 +63,11 @@ const Header = ({ usersInRoom }) => {
                 <div className="item"><FontAwesomeIcon icon={faCheck} className="icon" /></div>
                 <div className="item"><FontAwesomeIcon icon={faUserFriends} className="icon" /></div>
                 <div className="item"><FontAwesomeIcon icon={faGlobe} className="icon" /></div>
-                <div className="item" onClick={toggleUserList}> {/* Thêm sự kiện onClick để hiển thị danh sách người dùng */}
+                <div className="item" onClick={toggleUserList}>
                     <FontAwesomeIcon icon={faUsers} className="icon" />
                 </div>
             </div>
 
-            {/* Hiển thị popup khi showPopup là true */}
             {showPopup && (
                 <div className="popup-overlay">
                     <div className="popup">
@@ -59,7 +80,6 @@ const Header = ({ usersInRoom }) => {
                 </div>
             )}
 
-            {/* Hiển thị danh sách người dùng khi showUserList là true */}
             {showUserList && (
                 <div className="user-list">
                     <div className="user-list-header">

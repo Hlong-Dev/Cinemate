@@ -10,6 +10,7 @@ export const getUserFromToken = () => {
 
     return {
         username: user.sub, // Lấy username từ "sub"
+        avtUrl: user.avt_url, // Lấy avatar URL từ "avt_url"
         iat: user.iat,
         exp: user.exp
     };

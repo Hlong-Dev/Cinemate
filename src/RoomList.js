@@ -1,6 +1,7 @@
 ﻿import React, { useEffect, useState } from 'react';
 import axios from 'axios';
-import { Link } from 'react-router-dom'; // Dùng để điều hướng
+import { Link } from 'react-router-dom';
+import './RoomList.css';
 
 const RoomList = () => {
     const [rooms, setRooms] = useState([]);
@@ -16,16 +17,29 @@ const RoomList = () => {
     }, []);
 
     return (
-        <div>
-            <h2>Danh sách các phòng chat</h2>
-            <ul>
-                {rooms.map(room => (
-                    <li key={room.id}>
-                        {/* Bấm vào phòng để chuyển hướng tới trang chat của phòng đó */}
-                        <Link to={`/room/${room.id}`}>{room.name}</Link>
-                    </li>
-                ))}
-            </ul>
+        <div className="room-list">
+            {rooms.map(room => (
+                <div key={room.id} className="room-item">
+                    <Link to={`/room/${room.id}`} className="room-link">
+                        <div className="room-thumbnail">
+                            <img src={room.thumbnail} alt={`${room.name} Thumbnail`} />
+                        </div>
+                        <div className="room-info">
+                            <h3 className="room-title">{room.name}</h3>
+                            <div className="room-participants">
+                                {(room.participants || []).map((participant, index) => (
+                                    <img
+                                        key={index}
+                                        src={participant.avatar}
+                                        alt="Participant Avatar"
+                                        className="participant-avatar"
+                                    />
+                                ))}
+                            </div>
+                        </div>
+                    </Link>
+                </div>
+            ))}
         </div>
     );
 };

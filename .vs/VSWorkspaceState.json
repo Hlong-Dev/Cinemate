@@ -4,8 +4,8 @@
     "\\public",
     "\\src",
     "\\src\\components",
-    "\\src\\context"
+    "\\src\\utils"
   ],
-  "SelectedNode": "\\src\\ChatRoom.css",
+  "SelectedNode": "\\src\\RoomList.js",
   "PreviewInSolutionExplorer": false
 }

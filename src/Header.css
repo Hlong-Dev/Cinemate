@@ -89,7 +89,7 @@
     position: fixed;
     right: 0;
     top: 60px; /* Căn chỉnh panel bắt đầu ngay dưới header */
-    bottom: 60px; /* Căn chỉnh panel dừng lại trên phần nhập tin nhắn */
+    bottom: 75px; /* Căn chỉnh panel dừng lại trên phần nhập tin nhắn */
     width: 300px; /* Điều chỉnh chiều rộng của panel */
     background-color: rgba(0, 0, 0, 0.9); /* Màu nền tối */
     box-shadow: -2px 0 10px rgba(0, 0, 0, 0.5); /* Hiệu ứng đổ bóng */

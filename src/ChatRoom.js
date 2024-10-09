@@ -1,7 +1,7 @@
 ﻿import React, { useEffect, useState, useRef } from 'react';
 import SockJS from 'sockjs-client';
 import { Client } from '@stomp/stompjs';
-import { useParams } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import './ChatRoom.css';
 import { getUserFromToken } from './utils/jwtUtils';
 import ReactPlayer from 'react-player';
@@ -15,12 +15,27 @@ const ChatRoom = () => {
     const [messageContent, setMessageContent] = useState('');
     const [selectedImage, setSelectedImage] = useState(null);
     const [connected, setConnected] = useState(false);
-    const [usersInRoom, setUsersInRoom] = useState([]); // Thêm state để lưu danh sách người dùng
+    const [usersInRoom, setUsersInRoom] = useState([]);
+    const [ownerUsername, setOwnerUsername] = useState(''); // Thêm state để lưu ownerUsername
     const currentUser = getUserFromToken()?.username || 'Unknown';
     const chatMessagesRef = useRef(null);
     const inputRef = useRef(null);
+    const navigate = useNavigate();
 
     useEffect(() => {
+        // Lấy thông tin phòng từ server, bao gồm ownerUsername
+        const fetchRoomInfo = async () => {
+            try {
+                const response = await fetch(`http://localhost:8080/api/rooms/${roomId}`);
+                const roomData = await response.json();
+                setOwnerUsername(roomData.ownerUsername); // Lưu ownerUsername vào state
+            } catch (error) {
+                console.error("Lỗi khi lấy thông tin phòng:", error);
+            }
+        };
+
+        fetchRoomInfo(); // Gọi hàm để lấy thông tin phòng khi component được mount
+
         const socket = new SockJS('http://localhost:8080/ws');
         const client = new Client({
             webSocketFactory: () => socket,
@@ -43,6 +58,16 @@ const ChatRoom = () => {
                 client.subscribe(`/topic/${roomId}`, (message) => {
                     const receivedMessage = JSON.parse(message.body);
 
+                    // Kiểm tra nếu nhận được thông báo chủ phòng thoát
+                    if (receivedMessage.type === 'OWNER_LEFT') {
+                        // Chỉ hiển thị thông báo nếu người dùng không phải là chủ phòng
+                        if (currentUser !== ownerUsername) {
+                            alert("Chủ phòng đã thoát. Bạn sẽ được chuyển về trang chủ.");
+                            navigate('/home');
+                        }
+                        return; // Dừng tại đây nếu là thông báo OWNER_LEFT
+                    }
+
                     // Xử lý sự kiện JOIN/LEAVE để cập nhật danh sách người dùng
                     if (receivedMessage.type === 'JOIN') {
                         setUsersInRoom(prevUsers => [...prevUsers, receivedMessage.sender]);
@@ -55,7 +80,6 @@ const ChatRoom = () => {
             },
             onStompError: (frame) => {
                 console.error('Broker reported error: ' + frame.headers['message']);
-                console.error('Additional details: ' + frame.body);
                 setConnected(false);
             },
             onWebSocketClose: () => {
@@ -88,7 +112,8 @@ const ChatRoom = () => {
             }
             client.deactivate();
         };
-    }, [roomId, currentUser]);
+    }, [roomId, currentUser, ownerUsername, navigate]);
+
 
 
 
