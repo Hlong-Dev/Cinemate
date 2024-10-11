@@ -16,25 +16,24 @@ const ChatRoom = () => {
     const [selectedImage, setSelectedImage] = useState(null);
     const [connected, setConnected] = useState(false);
     const [usersInRoom, setUsersInRoom] = useState([]);
-    const [ownerUsername, setOwnerUsername] = useState(''); // Thêm state để lưu ownerUsername
-    const currentUser = getUserFromToken()?.username || 'Unknown';
+    const [ownerUsername, setOwnerUsername] = useState('');
+    const currentUser = getUserFromToken() || { username: 'Unknown', avtUrl: 'https://i.imgur.com/Tr9qnkI.jpeg' }; // Avatar mặc định
     const chatMessagesRef = useRef(null);
     const inputRef = useRef(null);
     const navigate = useNavigate();
 
     useEffect(() => {
-        // Lấy thông tin phòng từ server, bao gồm ownerUsername
         const fetchRoomInfo = async () => {
             try {
                 const response = await fetch(`http://localhost:8080/api/rooms/${roomId}`);
                 const roomData = await response.json();
-                setOwnerUsername(roomData.ownerUsername); // Lưu ownerUsername vào state
+                setOwnerUsername(roomData.ownerUsername);
             } catch (error) {
                 console.error("Lỗi khi lấy thông tin phòng:", error);
             }
         };
 
-        fetchRoomInfo(); // Gọi hàm để lấy thông tin phòng khi component được mount
+        fetchRoomInfo();
 
         const socket = new SockJS('http://localhost:8080/ws');
         const client = new Client({
@@ -46,7 +45,8 @@ const ChatRoom = () => {
                 setConnected(true);
 
                 const joinMessage = {
-                    sender: currentUser,
+                    sender: currentUser.username,
+                    avtUrl: currentUser.avtUrl, // Thêm avtUrl vào tin nhắn tham gia
                     type: 'JOIN'
                 };
                 client.publish({
@@ -54,21 +54,15 @@ const ChatRoom = () => {
                     body: JSON.stringify(joinMessage),
                 });
 
-                // Subscribe to the chat room to receive messages
                 client.subscribe(`/topic/${roomId}`, (message) => {
                     const receivedMessage = JSON.parse(message.body);
 
-                    // Kiểm tra nếu nhận được thông báo chủ phòng thoát
-                    if (receivedMessage.type === 'OWNER_LEFT') {
-                        // Chỉ hiển thị thông báo nếu người dùng không phải là chủ phòng
-                        if (currentUser !== ownerUsername) {
-                            alert("Chủ phòng đã thoát. Bạn sẽ được chuyển về trang chủ.");
-                            navigate('/home');
-                        }
-                        return; // Dừng tại đây nếu là thông báo OWNER_LEFT
+                    if (receivedMessage.type === 'OWNER_LEFT' && currentUser.username !== ownerUsername) {
+                        alert("Chủ phòng đã thoát. Bạn sẽ được chuyển về trang chủ.");
+                        navigate('/home');
+                        return;
                     }
 
-                    // Xử lý sự kiện JOIN/LEAVE để cập nhật danh sách người dùng
                     if (receivedMessage.type === 'JOIN') {
                         setUsersInRoom(prevUsers => [...prevUsers, receivedMessage.sender]);
                     } else if (receivedMessage.type === 'LEAVE') {
@@ -98,26 +92,19 @@ const ChatRoom = () => {
         return () => {
             if (client && client.connected) {
                 const leaveMessage = {
-                    sender: currentUser,
+                    sender: currentUser.username,
+                    avtUrl: currentUser.avtUrl,
                     type: 'LEAVE'
                 };
-                try {
-                    client.publish({
-                        destination: `/app/chat.removeUser/${roomId}`,
-                        body: JSON.stringify(leaveMessage),
-                    });
-                } catch (error) {
-                    console.error("Không thể gửi tin nhắn leave, STOMP connection không sẵn sàng.", error);
-                }
+                client.publish({
+                    destination: `/app/chat.removeUser/${roomId}`,
+                    body: JSON.stringify(leaveMessage),
+                });
             }
             client.deactivate();
         };
-    }, [roomId, currentUser, ownerUsername, navigate]);
+    }, [roomId, currentUser.username, currentUser.avtUrl, ownerUsername, navigate]);
 
-
-
-
-    // Automatically scroll to the bottom when messages are updated
     useEffect(() => {
         if (chatMessagesRef.current) {
             chatMessagesRef.current.scrollTop = chatMessagesRef.current.scrollHeight;
@@ -125,13 +112,13 @@ const ChatRoom = () => {
     }, [messages]);
 
     const sendMessage = () => {
-        // Kiểm tra nếu STOMP client đã kết nối và có nội dung hoặc hình ảnh để gửi
         if (stompClient && stompClient.connected && (messageContent.trim() || selectedImage)) {
             const chatMessage = {
-                sender: currentUser,
+                sender: currentUser.username,
+                avtUrl: currentUser.avtUrl, // Thêm avtUrl vào tin nhắn
                 content: messageContent.trim(),
-                image: null, // Sẽ được cập nhật nếu có hình ảnh
-                type: "CHAT" // Giữ nguyên kiểu là CHAT để có thể chứa cả văn bản và hình ảnh
+                image: null,
+                type: "CHAT"
             };
 
             if (selectedImage) {
@@ -143,27 +130,16 @@ const ChatRoom = () => {
                     success(result) {
                         const reader = new FileReader();
                         reader.onloadend = () => {
-                            const base64Image = reader.result;
-                            const base64Size = base64Image.length * (3 / 4) / 1024;
+                            const base64Image = reader.result.split(',')[1];
+                            chatMessage.image = base64Image;
 
-                            if (base64Size <= 64) { // Kiểm tra kích thước ảnh
-                                chatMessage.image = base64Image.split(',')[1]; // Lưu trữ ảnh dưới dạng base64
-                            } else {
-                                console.error('Kích thước ảnh quá lớn, hãy thử nén thêm.');
-                                return; // Dừng hàm nếu ảnh quá lớn
-                            }
-
-                            try {
-                                stompClient.publish({
-                                    destination: `/app/chat.sendMessage/${roomId}`,
-                                    body: JSON.stringify(chatMessage)
-                                });
-                            } catch (error) {
-                                console.error("Không thể gửi tin nhắn, STOMP connection không sẵn sàng.", error);
-                            }
+                            stompClient.publish({
+                                destination: `/app/chat.sendMessage/${roomId}`,
+                                body: JSON.stringify(chatMessage)
+                            });
 
                             setMessageContent('');
-                            setSelectedImage(null); // Xóa ảnh đã chọn sau khi gửi
+                            setSelectedImage(null);
                         };
                         reader.readAsDataURL(result);
                     },
@@ -172,42 +148,27 @@ const ChatRoom = () => {
                     },
                 });
             } else {
-                // Nếu không có hình ảnh, chỉ gửi văn bản
-                try {
-                    stompClient.publish({
-                        destination: `/app/chat.sendMessage/${roomId}`,
-                        body: JSON.stringify(chatMessage)
-                    });
-                    setMessageContent('');
-                } catch (error) {
-                    console.error("Không thể gửi tin nhắn, STOMP connection không sẵn sàng.", error);
-                }
-            }
-
-            // Nếu có cả văn bản và hình ảnh, đảm bảo cả hai đều được gửi
-            if (selectedImage) {
-                // Xử lý gửi hình ảnh đã thực hiện ở trên
-            } else {
-                // Gửi chỉ văn bản
+                stompClient.publish({
+                    destination: `/app/chat.sendMessage/${roomId}`,
+                    body: JSON.stringify(chatMessage)
+                });
+                setMessageContent('');
             }
         } else {
             console.error("WebSocket chưa kết nối hoặc tin nhắn trống.");
         }
     };
 
-
-
     const handleImageUpload = (e) => {
         if (e.target.files[0]) {
-            setSelectedImage(e.target.files[0]); // Set the selected image
-            inputRef.current.focus(); // Focus back to input after selecting an image
+            setSelectedImage(e.target.files[0]);
+            inputRef.current.focus();
         }
     };
 
     return (
         <div className="container">
-            <Header usersInRoom={usersInRoom} /> {/* Truyền danh sách người dùng qua Header */}
-
+            <Header usersInRoom={usersInRoom} />
 
             <div className="main-content">
                 <div className="video-section">
@@ -224,20 +185,15 @@ const ChatRoom = () => {
                     <div className="chat-messages" id="chatMessages" ref={chatMessagesRef}>
                         <ul>
                             {messages.map((message, index) => {
-                                const previousMessageSender = index > 0 ? messages[index - 1].sender : null;
-                                const isSameSenderAsPrevious = message.sender === previousMessageSender;
+                                const isSameSenderAsPrevious = index > 0 && message.sender === messages[index - 1].sender;
+                                const avtUrl = message.avtUrl || 'https://i.imgur.com/Tr9qnkI.jpeg'; // Lấy avtUrl từ message hoặc dùng mặc định nếu không có
 
-                                // Kiểm tra nếu tin nhắn trước đó là JOIN
-                                const previousMessageWasJoin = index > 0 ? messages[index - 1].type === 'JOIN' : false;
-
-                                // Tạo kiểu khác biệt cho thông báo JOIN/LEAVE
                                 if (message.type === 'JOIN' || message.type === 'LEAVE') {
                                     return (
                                         <li key={index} className="message-item system-notification">
                                             <div className="system-message-container">
-                                                {/* Hiển thị avatar của người dùng khi tham gia hoặc rời khỏi */}
                                                 <div className="message-avatar">
-                                                    <img src="https://i.imgur.com/Tr9qnkI.jpeg" alt="Avatar" />
+                                                    <img src={avtUrl} alt="Avatar" />
                                                 </div>
                                                 <div className="message-content">
                                                     <em>{message.sender} {message.type === 'JOIN' ? 'has joined the Room' : 'has left the Room'}</em>
@@ -247,40 +203,16 @@ const ChatRoom = () => {
                                     );
                                 }
 
-                                // Các tin nhắn thông thường
                                 return (
-                                    <li key={index} className={message.sender === currentUser ? "message-item sent" : "message-item received"}>
-                                        <div className={message.sender === currentUser ? "message-container sent-container" : "message-container received-container"}>
-
-                                            {/* Hiển thị avatar và tên người gửi nếu là tin nhắn mới hoặc người gửi khác */}
-                                            {!isSameSenderAsPrevious && message.sender !== currentUser && (
-                                                <>
-                                                    <div className="message-avatar">
-                                                        <img src="https://i.imgur.com/Tr9qnkI.jpeg" alt="Avatar" />
-                                                    </div>
-                                                    <div className="message-username">
-                                                        <strong>{message.sender}:</strong>
-                                                    </div>
-                                                </>
-                                            )}
-
-                                            {/* Hiển thị avatar cho người dùng hiện tại nếu là tin nhắn mới */}
-                                            {!isSameSenderAsPrevious && message.sender === currentUser && (
+                                    <li key={index} className={message.sender === currentUser.username ? "message-item sent" : "message-item received"}>
+                                        <div className={message.sender === currentUser.username ? "message-container sent-container" : "message-container received-container"}>
+                                            {!isSameSenderAsPrevious && (
                                                 <div className="message-avatar">
-                                                    <img src="https://i.imgur.com/Tr9qnkI.jpeg" alt="Avatar" />
+                                                    <img src={avtUrl} alt="Avatar" />
                                                 </div>
                                             )}
-
-                                            {/* Hiển thị văn bản và hình ảnh trong cùng một khối */}
                                             <div className="message-content">
-                                                {/* Hiển thị nội dung văn bản nếu có */}
-                                                {message.content && (
-                                                    <div className="message-text">
-                                                        {message.content}
-                                                    </div>
-                                                )}
-
-                                                {/* Hiển thị hình ảnh nếu có */}
+                                                {message.content && <div className="message-text">{message.content}</div>}
                                                 {message.image && (
                                                     <div className="message-image">
                                                         <img src={`data:image/png;base64,${message.image}`} alt="Sent Image" style={{ maxWidth: '200px', marginTop: '10px' }} />
@@ -291,11 +223,11 @@ const ChatRoom = () => {
                                     </li>
                                 );
                             })}
+
                         </ul>
 
                     </div>
 
-                    {/* Display image preview above the input */}
                     {selectedImage && (
                         <div className="image-preview-container">
                             <img src={URL.createObjectURL(selectedImage)} alt="Preview" style={{ maxWidth: '200px', marginBottom: '10px' }} />
@@ -308,7 +240,7 @@ const ChatRoom = () => {
                             className="chat-input"
                             type="text"
                             value={messageContent}
-                            ref={inputRef} // Reference for input
+                            ref={inputRef}
                             onChange={(e) => setMessageContent(e.target.value)}
                             onKeyPress={(e) => {
                                 if (e.key === 'Enter') {
@@ -326,8 +258,8 @@ const ChatRoom = () => {
                             id="imageUpload"
                             type="file"
                             accept="image/*"
-                            onChange={handleImageUpload} // Handle image upload
-                            style={{ display: 'none' }} // Hide the input, we use the label with the icon for the click event
+                            onChange={handleImageUpload}
+                            style={{ display: 'none' }}
                         />
                     </div>
 

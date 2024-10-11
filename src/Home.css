@@ -100,71 +100,7 @@
     margin-bottom: 10px;
 }
 
-.video-list {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 20px; /* Khoảng cách giữa các video */
-    justify-content: space-between; /* Canh đều 2 video mỗi hàng */
-}
 
-.thumbnail img {
-    width: 160px;
-    height: 90px;
-    border-radius: 20px; /* Làm tròn hình ảnh thumbnail */
-    object-fit: cover; /* Đảm bảo hình ảnh giữ tỷ lệ nhưng vừa kích thước */
-}
-
-.video-item {
-    display: flex;
-    align-items: center;
-    background-color: #333;
-    padding: 10px;
-    border-radius: 20px;
-    width: calc(50% - 10px); /* Đảm bảo 2 video mỗi hàng */
-    max-width: 100%; /* Đảm bảo video item không vượt quá chiều rộng */
-    box-sizing: border-box; /* Tính cả padding vào chiều rộng */
-    overflow: hidden; /* Ẩn nội dung vượt quá khung */
-}
-
-.video-info {
-    padding-left: 10px;
-    flex-grow: 1; /* Chiếm không gian còn lại trong video-item */
-    min-width: 0; /* Bắt buộc video-info phải co lại khi cần thiết */
-}
-
-    .video-info h3 {
-        font-size: 16px;
-        margin-bottom: 10px;
-        color: white;
-        white-space: nowrap;
-        overflow: hidden; /* Ẩn phần vượt ra ngoài */
-        text-overflow: ellipsis; /* Hiển thị dấu ba chấm (...) */
-        width: 100%; /* Đảm bảo h3 chiếm toàn bộ không gian có sẵn */
-        box-sizing: border-box;
-    }
-
-.user-list {
-    display: flex;
-    align-items: center;
-    margin-top: 5px;
-}
-
-    .user-list img {
-        width: 35px;
-        height: 35px;
-        border-radius: 50%;
-        margin-right: 8px;
-    }
-
-.mature-toggle {
-    margin-top: 20px;
-    display: flex;
-    align-items: center;
-}
-
-    .mature-toggle label {
-        margin-right: 10px;
-    }
 /*code moi*/
 .sidebar {
     position: fixed;
