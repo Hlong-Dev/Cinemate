@@ -7,7 +7,7 @@ const RoomList = () => {
     const [rooms, setRooms] = useState([]);
 
     useEffect(() => {
-        axios.get('https://ddf1-183-91-29-130.ngrok-free.app/api/rooms')
+        axios.get('https://localhost/api/rooms')
             .then(response => {
                 setRooms(response.data);
             })
