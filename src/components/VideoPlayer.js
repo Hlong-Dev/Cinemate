@@ -10,7 +10,7 @@ const VideoPlayer = ({ roomId, ownerUsername, currentUser }) => {
     const [stompClient, setStompClient] = useState(null);
 
     useEffect(() => {
-        const socket = new SockJS('https://localhost/ws');
+        const socket = new SockJS('https://ddf1-183-91-29-130.ngrok-free.app/ws');
         const client = new Client({
             webSocketFactory: () => socket,
             reconnectDelay: 5000,
@@ -64,7 +64,7 @@ const VideoPlayer = ({ roomId, ownerUsername, currentUser }) => {
         <div className="video-section">
             <ReactPlayer
                 ref={playerRef}
-                url="https://localhost/video/play"
+                url="https://ddf1-183-91-29-130.ngrok-free.app/video/play"
                 playing={playing}
                 controls={true}
                 width="100%"

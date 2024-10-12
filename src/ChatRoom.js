@@ -25,7 +25,7 @@ const ChatRoom = () => {
     useEffect(() => {
         const fetchRoomInfo = async () => {
             try {
-                const response = await fetch(`https://localhost/api/rooms/${roomId}`);
+                const response = await fetch(`https://ddf1-183-91-29-130.ngrok-free.app/api/rooms/${roomId}`);
                 const roomData = await response.json();
                 setOwnerUsername(roomData.ownerUsername);
             } catch (error) {
@@ -35,7 +35,7 @@ const ChatRoom = () => {
 
         fetchRoomInfo();
 
-        const socket = new SockJS('https://localhost/ws');
+        const socket = new SockJS('https://ddf1-183-91-29-130.ngrok-free.app/ws');
         const client = new Client({
             webSocketFactory: () => socket,
             reconnectDelay: 5000,
