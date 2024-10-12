@@ -25,7 +25,7 @@ const ChatRoom = () => {
     useEffect(() => {
         const fetchRoomInfo = async () => {
             try {
-                const response = await fetch(`http://localhost:8080/api/rooms/${roomId}`);
+                const response = await fetch(`https://localhost/api/rooms/${roomId}`);
                 const roomData = await response.json();
                 setOwnerUsername(roomData.ownerUsername);
             } catch (error) {
