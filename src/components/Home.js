@@ -33,12 +33,24 @@ const Home = () => {
     const fetchRooms = async () => {
         try {
             const response = await fetch("https://ddf1-183-91-29-130.ngrok-free.app/api/rooms");
+
+            if (!response.ok) {
+                throw new Error(`Server error: ${response.status}`);
+            }
+
+            // Kiểm tra xem phản hồi có phải JSON không
+            const contentType = response.headers.get("content-type");
+            if (!contentType || !contentType.includes("application/json")) {
+                throw new Error("Received non-JSON response from server");
+            }
+
             const roomsData = await response.json();
             setRooms(roomsData);
         } catch (error) {
             console.error("Error fetching rooms:", error);
         }
     };
+
 
     const createRoom = async () => {
         try {
