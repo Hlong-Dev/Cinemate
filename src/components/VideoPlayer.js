@@ -10,7 +10,7 @@ const VideoPlayer = ({ roomId, ownerUsername, currentUser }) => {
     const [stompClient, setStompClient] = useState(null);
 
     useEffect(() => {
-        const socket = new SockJS('http://localhost:8080/ws');
+        const socket = new SockJS('https://localhost/ws');
         const client = new Client({
             webSocketFactory: () => socket,
             reconnectDelay: 5000,
