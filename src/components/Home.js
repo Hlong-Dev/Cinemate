@@ -32,7 +32,7 @@ const Home = () => {
 
     const fetchRooms = async () => {
         try {
-            const response = await fetch("http://localhost:8080/api/rooms");
+            const response = await fetch("https://localhost/api/rooms");
             const roomsData = await response.json();
             setRooms(roomsData);
         } catch (error) {
@@ -43,7 +43,7 @@ const Home = () => {
     const createRoom = async () => {
         try {
             const token = localStorage.getItem('token');
-            const response = await fetch("http://localhost:8080/api/rooms", {
+            const response = await fetch("https://localhost/api/rooms", {
                 method: "POST",
                 headers: {
                     "Content-Type": "application/json",
