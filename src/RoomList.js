@@ -1,20 +1,12 @@
-﻿import React, { useEffect, useState } from 'react';
-import axios from 'axios';
+﻿import React from 'react';
 import { Link } from 'react-router-dom';
 import './RoomList.css';
 
-const RoomList = () => {
-    const [rooms, setRooms] = useState([]);
-
-    useEffect(() => {
-        axios.get('https://ddf1-183-91-29-130.ngrok-free.app/api/rooms')
-            .then(response => {
-                setRooms(response.data);
-            })
-            .catch(error => {
-                console.error("Có lỗi xảy ra khi lấy danh sách phòng:", error);
-            });
-    }, []);
+const RoomList = ({ rooms }) => {
+    // Kiểm tra nếu `rooms` là một mảng hợp lệ trước khi gọi `map`
+    if (!Array.isArray(rooms)) {
+        return <div>Error: Rooms data is not an array</div>;
+    }
 
     return (
         <div className="room-list">
@@ -26,16 +18,7 @@ const RoomList = () => {
                         </div>
                         <div className="room-info">
                             <h3 className="room-title">{room.name}</h3>
-                            <div className="room-participants">
-                                {(room.participants || []).map((participant, index) => (
-                                    <img
-                                        key={index}
-                                        src={participant.avatar}
-                                        alt="Participant Avatar"
-                                        className="participant-avatar"
-                                    />
-                                ))}
-                            </div>
+                            {/* Hiển thị thêm thông tin nếu có */}
                         </div>
                     </Link>
                 </div>
