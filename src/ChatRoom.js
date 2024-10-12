@@ -4,9 +4,9 @@ import { Client } from '@stomp/stompjs';
 import { useNavigate, useParams } from 'react-router-dom';
 import './ChatRoom.css';
 import { getUserFromToken } from './utils/jwtUtils';
-import ReactPlayer from 'react-player';
 import Compressor from 'compressorjs';
 import Header from './components/Header';
+import VideoPlayer from './components/VideoPlayer';
 
 const ChatRoom = () => {
     const { roomId } = useParams();
@@ -35,12 +35,12 @@ const ChatRoom = () => {
 
         fetchRoomInfo();
 
-        const socket = new SockJS('http://localhost:8080/ws');
+        const socket = new SockJS('https://localhost/ws');
         const client = new Client({
             webSocketFactory: () => socket,
             reconnectDelay: 5000,
-            heartbeatIncoming: 20000,
-            heartbeatOutgoing: 20000,
+            heartbeatIncoming: 10000, // Client nhận heartbeat mỗi 10 giây
+            heartbeatOutgoing: 10000,
             onConnect: () => {
                 setConnected(true);
 
@@ -171,22 +171,14 @@ const ChatRoom = () => {
             <Header usersInRoom={usersInRoom} />
 
             <div className="main-content">
-                <div className="video-section">
-                    <ReactPlayer
-                        url="https://localhost/video/play"
-                        className="react-player"
-                        playing={true}
-                        controls={true}
-                        width="100%"
-                        height="100%"
-                    />
-                </div>
+                <VideoPlayer roomId={roomId} ownerUsername={ownerUsername} currentUser={currentUser} />
                 <div className="chat-section">
                     <div className="chat-messages" id="chatMessages" ref={chatMessagesRef}>
                         <ul>
                             {messages.map((message, index) => {
+                                const isSender = message.sender === currentUser.username;
                                 const isSameSenderAsPrevious = index > 0 && message.sender === messages[index - 1].sender;
-                                const avtUrl = message.avtUrl || 'https://i.imgur.com/Tr9qnkI.jpeg'; // Lấy avtUrl từ message hoặc dùng mặc định nếu không có
+                                const avtUrl = message.avtUrl || 'https://i.imgur.com/Tr9qnkI.jpeg';
 
                                 if (message.type === 'JOIN' || message.type === 'LEAVE') {
                                     return (
@@ -204,12 +196,16 @@ const ChatRoom = () => {
                                 }
 
                                 return (
-                                    <li key={index} className={message.sender === currentUser.username ? "message-item sent" : "message-item received"}>
-                                        <div className={message.sender === currentUser.username ? "message-container sent-container" : "message-container received-container"}>
-                                            {!isSameSenderAsPrevious && (
-                                                <div className="message-avatar">
-                                                    <img src={avtUrl} alt="Avatar" />
-                                                </div>
+                                    <li key={index} className={isSender ? "message-item sent" : "message-item received"}>
+                                        <div className={isSender ? "message-container sent-container" : "message-container received-container"}>
+                                            {/* Hiện avatar và tên người gửi nếu đây là tin nhắn đầu tiên hoặc nếu người gửi khác với tin nhắn trước đó */}
+                                            {!isSender && !isSameSenderAsPrevious && (
+                                                <div className="message-header">
+                                                    <div className="message-avatar">
+                                                        <img src={avtUrl} alt="Avatar" />
+                                                    </div>
+                                                    <strong className="message-sender">{message.sender}</strong>
+                                                </div> 
                                             )}
                                             <div className="message-content">
                                                 {message.content && <div className="message-text">{message.content}</div>}
@@ -223,6 +219,7 @@ const ChatRoom = () => {
                                     </li>
                                 );
                             })}
+
 
                         </ul>
 
