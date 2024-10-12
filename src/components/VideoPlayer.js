@@ -64,7 +64,7 @@ const VideoPlayer = ({ roomId, ownerUsername, currentUser }) => {
         <div className="video-section">
             <ReactPlayer
                 ref={playerRef}
-                url="http://localhost/video/play"
+                url="https://localhost/video/play"
                 playing={playing}
                 controls={true}
                 width="100%"
