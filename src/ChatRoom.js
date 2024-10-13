@@ -6,7 +6,7 @@ import './ChatRoom.css';
 import { getUserFromToken } from './utils/jwtUtils';
 import Compressor from 'compressorjs';
 import Header from './components/Header';
-import VideoPlayer from './components/VideoPlayer';
+import ReactPlayer from 'react-player';
 
 const ChatRoom = () => {
     const { roomId } = useParams();
@@ -17,7 +17,7 @@ const ChatRoom = () => {
     const [connected, setConnected] = useState(false);
     const [usersInRoom, setUsersInRoom] = useState([]);
     const [ownerUsername, setOwnerUsername] = useState('');
-    const currentUser = getUserFromToken() || { username: 'Unknown', avtUrl: 'https://i.imgur.com/Tr9qnkI.jpeg' }; // Avatar mặc định
+    const currentUser = getUserFromToken() || { username: 'Unknown', avtUrl: 'https://i.imgur.com/Tr9qnkI.jpeg' };
     const chatMessagesRef = useRef(null);
     const inputRef = useRef(null);
     const navigate = useNavigate();
@@ -25,7 +25,12 @@ const ChatRoom = () => {
     useEffect(() => {
         const fetchRoomInfo = async () => {
             try {
-                const response = await fetch(`https://ddf1-183-91-29-130.ngrok-free.app/api/rooms/${roomId}`);
+                const response = await fetch(`https://ddf1-183-91-29-130.ngrok-free.app/api/rooms/${roomId}`, {
+                    credentials: 'include',
+                });
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
                 const roomData = await response.json();
                 setOwnerUsername(roomData.ownerUsername);
             } catch (error) {
@@ -35,40 +40,38 @@ const ChatRoom = () => {
 
         fetchRoomInfo();
 
-        const socket = new SockJS('https://ddf1-183-91-29-130.ngrok-free.app/ws');
+        const socket = new SockJS('https://ddf1-183-91-29-130.ngrok-free.app/ws', null, {
+            headers: { 'ngrok-skip-browser-warning': 'true' }
+        });
         const client = new Client({
             webSocketFactory: () => socket,
             reconnectDelay: 5000,
-            heartbeatIncoming: 10000, // Client nhận heartbeat mỗi 10 giây
+            heartbeatIncoming: 10000,
             heartbeatOutgoing: 10000,
+            connectHeaders: { 'ngrok-skip-browser-warning': 'true' },
             onConnect: () => {
                 setConnected(true);
-
                 const joinMessage = {
                     sender: currentUser.username,
-                    avtUrl: currentUser.avtUrl, // Thêm avtUrl vào tin nhắn tham gia
+                    avtUrl: currentUser.avtUrl,
                     type: 'JOIN'
                 };
                 client.publish({
                     destination: `/app/chat.addUser/${roomId}`,
                     body: JSON.stringify(joinMessage),
                 });
-
                 client.subscribe(`/topic/${roomId}`, (message) => {
                     const receivedMessage = JSON.parse(message.body);
-
                     if (receivedMessage.type === 'OWNER_LEFT' && currentUser.username !== ownerUsername) {
                         alert("Chủ phòng đã thoát. Bạn sẽ được chuyển về trang chủ.");
                         navigate('/home');
                         return;
                     }
-
                     if (receivedMessage.type === 'JOIN') {
                         setUsersInRoom(prevUsers => [...prevUsers, receivedMessage.sender]);
                     } else if (receivedMessage.type === 'LEAVE') {
                         setUsersInRoom(prevUsers => prevUsers.filter(user => user !== receivedMessage.sender));
                     }
-
                     setMessages(prevMessages => [...prevMessages, receivedMessage]);
                 });
             },
@@ -115,7 +118,7 @@ const ChatRoom = () => {
         if (stompClient && stompClient.connected && (messageContent.trim() || selectedImage)) {
             const chatMessage = {
                 sender: currentUser.username,
-                avtUrl: currentUser.avtUrl, // Thêm avtUrl vào tin nhắn
+                avtUrl: currentUser.avtUrl,
                 content: messageContent.trim(),
                 image: null,
                 type: "CHAT"
@@ -132,12 +135,10 @@ const ChatRoom = () => {
                         reader.onloadend = () => {
                             const base64Image = reader.result.split(',')[1];
                             chatMessage.image = base64Image;
-
                             stompClient.publish({
                                 destination: `/app/chat.sendMessage/${roomId}`,
                                 body: JSON.stringify(chatMessage)
                             });
-
                             setMessageContent('');
                             setSelectedImage(null);
                         };
@@ -171,7 +172,16 @@ const ChatRoom = () => {
             <Header usersInRoom={usersInRoom} />
 
             <div className="main-content">
-                <VideoPlayer roomId={roomId} ownerUsername={ownerUsername} currentUser={currentUser} />
+                <div className="video-section">
+                    <ReactPlayer
+                        url="https://ddf1-183-91-29-130.ngrok-free.app/video/play"
+                        className="react-player"
+                        playing={true}
+                        controls={true}
+                        width="100%"
+                        height="100%"
+                    />
+                </div>
                 <div className="chat-section">
                     <div className="chat-messages" id="chatMessages" ref={chatMessagesRef}>
                         <ul>
@@ -198,14 +208,13 @@ const ChatRoom = () => {
                                 return (
                                     <li key={index} className={isSender ? "message-item sent" : "message-item received"}>
                                         <div className={isSender ? "message-container sent-container" : "message-container received-container"}>
-                                            {/* Hiện avatar và tên người gửi nếu đây là tin nhắn đầu tiên hoặc nếu người gửi khác với tin nhắn trước đó */}
                                             {!isSender && !isSameSenderAsPrevious && (
                                                 <div className="message-header">
                                                     <div className="message-avatar">
                                                         <img src={avtUrl} alt="Avatar" />
                                                     </div>
                                                     <strong className="message-sender">{message.sender}</strong>
-                                                </div> 
+                                                </div>
                                             )}
                                             <div className="message-content">
                                                 {message.content && <div className="message-text">{message.content}</div>}
@@ -219,10 +228,7 @@ const ChatRoom = () => {
                                     </li>
                                 );
                             })}
-
-
                         </ul>
-
                     </div>
 
                     {selectedImage && (
