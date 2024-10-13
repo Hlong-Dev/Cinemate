@@ -3,9 +3,10 @@
     "",
     "\\public",
     "\\src",
+    "\\src\\api",
     "\\src\\components",
     "\\src\\utils"
   ],
-  "SelectedNode": "\\src\\RoomList.css",
+  "SelectedNode": "\\src\\components\\Home.js",
   "PreviewInSolutionExplorer": false
 }

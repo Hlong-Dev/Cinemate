@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect, useRef, useContext } from 'react';
+﻿import React, { useState, useRef, useContext } from 'react';
 import { AuthContext } from '../context/AuthContext';
 import LogoutButton from './LogoutButton';
 import RoomList from '../RoomList';
@@ -7,50 +7,13 @@ import '../Home.css';
 
 const Home = () => {
     const [isSidebarOpen, setIsSidebarOpen] = useState(false);
-    const { user } = useContext(AuthContext); // Lấy thông tin user từ context
+    const { user } = useContext(AuthContext);
     const sidebarRef = useRef(null);
-    const [rooms, setRooms] = useState([]); // Thêm state để lưu danh sách phòng
-    const navigate = useNavigate(); // Sử dụng navigate từ react-router-dom
+    const navigate = useNavigate();
 
     const toggleSidebar = () => {
         setIsSidebarOpen(!isSidebarOpen);
     };
-
-    useEffect(() => {
-        function handleClickOutside(event) {
-            if (sidebarRef.current && !sidebarRef.current.contains(event.target)) {
-                setIsSidebarOpen(false);
-            }
-        }
-        document.addEventListener("mousedown", handleClickOutside);
-        return () => document.removeEventListener("mousedown", handleClickOutside);
-    }, [sidebarRef]);
-
-    useEffect(() => {
-        fetchRooms();
-    }, []);
-
-    const fetchRooms = async () => {
-        try {
-            const response = await fetch("https://ddf1-183-91-29-130.ngrok-free.app/api/rooms");
-
-            if (!response.ok) {
-                throw new Error(`Server error: ${response.status}`);
-            }
-
-            // Kiểm tra xem phản hồi có phải JSON không
-            const contentType = response.headers.get("content-type");
-            if (!contentType || !contentType.includes("application/json")) {
-                throw new Error("Received non-JSON response from server");
-            }
-
-            const roomsData = await response.json();
-            setRooms(roomsData);
-        } catch (error) {
-            console.error("Error fetching rooms:", error);
-        }
-    };
-
 
     const createRoom = async () => {
         try {
@@ -63,8 +26,8 @@ const Home = () => {
                 }
             });
             if (response.ok) {
-                const newRoom = await response.json(); // Lấy thông tin phòng mới từ server
-                navigate(`/room/${newRoom.id}`); // Điều hướng vào phòng vừa tạo
+                const newRoom = await response.json();
+                navigate(`/room/${newRoom.id}`);
             } else {
                 console.error("Failed to create room");
             }
@@ -110,10 +73,8 @@ const Home = () => {
                             )
                         }
                     </AuthContext.Consumer>
-
                 </ul>
             </nav>
-
 
             <div className="services">
                 <img src="https://i.imgur.com/Q1iIpAE.png" alt="YouTube" />
@@ -125,9 +86,8 @@ const Home = () => {
             </div>
 
             <div className="content">
-                <RoomList rooms={rooms} />
+                <RoomList /> {/* Đơn giản chỉ render RoomList */}
             </div>
-
         </>
     );
 };
