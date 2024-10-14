@@ -182,9 +182,11 @@ const ChatRoom = () => {
         }
     };
     const playVideo = (video) => {
-        setCurrentVideoUrl(video.url); // Sử dụng video.url thay vì toàn bộ đối tượng
+        const videoUrl = `https://colkidclub-hutech.id.vn/video/play/${encodeURIComponent(video.title)}`; // Sử dụng đường dẫn đầy đủ với encode
+        setCurrentVideoUrl(videoUrl); // Sử dụng URL đầy đủ đến máy chủ
         setShowVideoList(false); // Ẩn danh sách video
     };
+
 
 
     return (
