@@ -21,7 +21,7 @@ const Header = ({ usersInRoom }) => {
         try {
             console.log("Sending DELETE request to server...");
 
-            const response = await fetch(`https://ddf1-183-91-29-130.ngrok-free.app/api/rooms/${roomId}`, {
+            const response = await fetch(`https://colkidclub-hutech.id.vn/api/rooms/${roomId}`, {
                 method: 'DELETE',
                 headers: {
                     'Authorization': `Bearer ${token}`, // Đính kèm mã JWT

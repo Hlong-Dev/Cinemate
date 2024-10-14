@@ -15,6 +15,9 @@ const ChatRoom = () => {
     const [connected, setConnected] = useState(false);
     const [usersInRoom, setUsersInRoom] = useState([]);
     const [ownerUsername, setOwnerUsername] = useState('');
+    const [videoList, setVideoList] = useState([]); // Quản lý danh sách video
+    const [currentVideoUrl, setCurrentVideoUrl] = useState(''); // Quản lý video đang phát
+    const [showVideoList, setShowVideoList] = useState(true);
     const currentUser = getUserFromToken() || { username: 'Unknown', avtUrl: 'https://i.imgur.com/WxNkK7J.png' };
     const chatMessagesRef = useRef(null);
     const inputRef = useRef(null);
@@ -40,7 +43,17 @@ const ChatRoom = () => {
         };
 
         fetchRoomInfo();
+        const fetchVideoList = async () => {
+            try {
+                const response = await fetch('https://colkidclub-hutech.id.vn/video/list'); // Gọi API để lấy danh sách video
+                const videos = await response.json();
+                setVideoList(videos); // Lưu danh sách video vào state
+            } catch (error) {
+                console.error("Lỗi khi lấy danh sách video:", error);
+            }
+        };
 
+        fetchVideoList();
         // Chỉ khởi tạo WebSocket nếu stompClient chưa được tạo
         if (!stompClientRef.current) {
             const client = new Client({
@@ -168,6 +181,10 @@ const ChatRoom = () => {
             inputRef.current.focus();
         }
     };
+    const playVideo = (video) => {
+        setCurrentVideoUrl(video.url); // Sử dụng video.url thay vì toàn bộ đối tượng
+        setShowVideoList(false); // Ẩn danh sách video
+    };
 
 
     return (
@@ -176,14 +193,33 @@ const ChatRoom = () => {
 
             <div className="main-content">
                 <div className="video-section">
-                    <ReactPlayer
-                        url="https://colkidclub-hutech.id.vn/video/play"
-                        className="react-player"
-                        playing={true}
-                        controls={true}
-                        width="100%"
-                        height="100%"
-                    />
+                    {showVideoList ? (
+                        <div className="grid-container">
+                            {videoList.map((video, index) => (
+                                <div className="video-card" key={index} onClick={() => playVideo(video)}>
+                                    <img
+                                        src={`https://colkidclub-hutech.id.vn${video.thumbnail}`} // URL đầy đủ tới ảnh
+                                        alt={`Thumbnail of ${video.title}`}
+                                        className="thumbnail"
+                                    />
+                                    <div className="video-info">
+                                        <p className="video-title">{video.title}</p>
+                                        <span className="video-duration">{video.duration}</span>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+
+                    ) : (
+                        <ReactPlayer
+                            url={currentVideoUrl}
+                            className="react-player"
+                            playing={true}
+                            controls={true}
+                            width="100%"
+                            height="100%"
+                        />
+                    )}
                 </div>
                 <div className="chat-section">
                     <div className="chat-messages" id="chatMessages" ref={chatMessagesRef}>
