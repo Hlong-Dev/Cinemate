@@ -11,7 +11,7 @@ const Login = () => {
     const handleSubmit = async (event) => {
         event.preventDefault();
         try {
-            const response = await axios.post('https://ddf1-183-91-29-130.ngrok-free.app/api/auth/login', {
+            const response = await axios.post('https://colkidclub-hutech.id.vn/api/auth/login', {
                 username,
                 password
             });

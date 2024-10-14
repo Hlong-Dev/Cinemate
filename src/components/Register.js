@@ -13,7 +13,7 @@ const Register = () => {
     const handleSubmit = async (event) => {
         event.preventDefault();
         try {
-            const response = await axios.post('https://seeker-young-traveller-statutes.trycloudflare.com/api/register', {
+            const response = await axios.post('https://colkidclub-hutech.id.vn/api/register', {
                 username,
                 password,
                 email,
