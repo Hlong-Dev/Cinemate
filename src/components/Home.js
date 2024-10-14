@@ -18,7 +18,7 @@ const Home = () => {
     const createRoom = async () => {
         try {
             const token = localStorage.getItem('token');
-            const response = await fetch("https://seeker-young-traveller-statutes.trycloudflare.com/api/rooms", {
+            const response = await fetch("https://colkidclub-hutech.id.vn/api/rooms", {
                 method: "POST",
                 headers: {
                     "Content-Type": "application/json",

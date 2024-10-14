@@ -1,6 +1,5 @@
 ﻿import React, { useEffect, useState, useRef } from 'react';
-import SockJS from 'sockjs-client';
-import { Client } from '@stomp/stompjs';
+import { Client } from '@stomp/stompjs';  // Không cần SockJS nữa
 import { useNavigate, useParams } from 'react-router-dom';
 import './ChatRoom.css';
 import { getUserFromToken } from './utils/jwtUtils';
@@ -11,7 +10,6 @@ import ReactPlayer from 'react-player';
 const ChatRoom = () => {
     const { roomId } = useParams();
     const [messages, setMessages] = useState([]);
-    const [stompClient, setStompClient] = useState(null);
     const [messageContent, setMessageContent] = useState('');
     const [selectedImage, setSelectedImage] = useState(null);
     const [connected, setConnected] = useState(false);
@@ -22,10 +20,13 @@ const ChatRoom = () => {
     const inputRef = useRef(null);
     const navigate = useNavigate();
 
+    // Tạo một ref để lưu giữ instance của stompClient
+    const stompClientRef = useRef(null);
+
     useEffect(() => {
         const fetchRoomInfo = async () => {
             try {
-                const response = await fetch(`https://seeker-young-traveller-statutes.trycloudflare.com/api/rooms/${roomId}`, {
+                const response = await fetch(`https://colkidclub-hutech.id.vn/api/rooms/${roomId}`, {
                     credentials: 'include',
                 });
                 if (!response.ok) {
@@ -40,71 +41,72 @@ const ChatRoom = () => {
 
         fetchRoomInfo();
 
-        const socket = new SockJS('https://seeker-young-traveller-statutes.trycloudflare.com/ws', null, {
-            headers: { 'ngrok-skip-browser-warning': 'true' }
-        });
-        const client = new Client({
-            webSocketFactory: () => socket,
-            reconnectDelay: 5000,
-            heartbeatIncoming: 10000,
-            heartbeatOutgoing: 10000,
-            connectHeaders: { 'ngrok-skip-browser-warning': 'true' },
-            onConnect: () => {
-                setConnected(true);
-                const joinMessage = {
-                    sender: currentUser.username,
-                    avtUrl: currentUser.avtUrl,
-                    type: 'JOIN'
-                };
-                client.publish({
-                    destination: `/app/chat.addUser/${roomId}`,
-                    body: JSON.stringify(joinMessage),
-                });
-                client.subscribe(`/topic/${roomId}`, (message) => {
-                    const receivedMessage = JSON.parse(message.body);
-                    if (receivedMessage.type === 'OWNER_LEFT' && currentUser.username !== ownerUsername) {
-                        alert("Chủ phòng đã thoát. Bạn sẽ được chuyển về trang chủ.");
-                        navigate('/home');
-                        return;
-                    }
-                    if (receivedMessage.type === 'JOIN') {
-                        setUsersInRoom(prevUsers => [...prevUsers, receivedMessage.sender]);
-                    } else if (receivedMessage.type === 'LEAVE') {
-                        setUsersInRoom(prevUsers => prevUsers.filter(user => user !== receivedMessage.sender));
-                    }
-                    setMessages(prevMessages => [...prevMessages, receivedMessage]);
-                });
-            },
-            onStompError: (frame) => {
-                console.error('Broker reported error: ' + frame.headers['message']);
-                setConnected(false);
-            },
-            onWebSocketClose: () => {
-                console.error('WebSocket connection closed, attempting to reconnect...');
-                setConnected(false);
-            },
-            onWebSocketError: (error) => {
-                console.error('WebSocket error occurred: ', error);
-                setConnected(false);
-            },
-        });
+        // Chỉ khởi tạo WebSocket nếu stompClient chưa được tạo
+        if (!stompClientRef.current) {
+            const client = new Client({
+                brokerURL: 'wss://colkidclub-hutech.id.vn/ws',
+                reconnectDelay: 5000,
+                heartbeatIncoming: 10000,
+                heartbeatOutgoing: 10000,
+                onConnect: () => {
+                    setConnected(true);
+                    const joinMessage = {
+                        sender: currentUser.username,
+                        avtUrl: currentUser.avtUrl,
+                        type: 'JOIN'
+                    };
+                    client.publish({
+                        destination: `/app/chat.addUser/${roomId}`,
+                        body: JSON.stringify(joinMessage),
+                    });
+                    client.subscribe(`/topic/${roomId}`, (message) => {
+                        const receivedMessage = JSON.parse(message.body);
+                        if (receivedMessage.type === 'OWNER_LEFT' && currentUser.username !== ownerUsername) {
+                            alert("Chủ phòng đã thoát. Bạn sẽ được chuyển về trang chủ.");
+                            navigate('/home');
+                            return;
+                        }
+                        if (receivedMessage.type === 'JOIN') {
+                            setUsersInRoom(prevUsers => [...prevUsers, receivedMessage.sender]);
+                        } else if (receivedMessage.type === 'LEAVE') {
+                            setUsersInRoom(prevUsers => prevUsers.filter(user => user !== receivedMessage.sender));
+                        }
+                        setMessages(prevMessages => [...prevMessages, receivedMessage]);
+                    });
+                },
+                onStompError: (frame) => {
+                    console.error('Broker reported error: ' + frame.headers['message']);
+                    setConnected(false);
+                },
+                onWebSocketClose: () => {
+                    console.error('WebSocket connection closed, attempting to reconnect...');
+                    setConnected(false);
+                },
+                onWebSocketError: (error) => {
+                    console.error('WebSocket error occurred: ', error);
+                    setConnected(false);
+                },
+            });
 
-        client.activate();
-        setStompClient(client);
+            // Lưu instance của stompClient vào ref
+            stompClientRef.current = client;
+            client.activate();
+        }
 
+        // Cleanup khi component unmount
         return () => {
-            if (client && client.connected) {
+            if (stompClientRef.current && stompClientRef.current.connected) {
                 const leaveMessage = {
                     sender: currentUser.username,
                     avtUrl: currentUser.avtUrl,
                     type: 'LEAVE'
                 };
-                client.publish({
+                stompClientRef.current.publish({
                     destination: `/app/chat.removeUser/${roomId}`,
                     body: JSON.stringify(leaveMessage),
                 });
+                stompClientRef.current.deactivate();
             }
-            client.deactivate();
         };
     }, [roomId, currentUser.username, currentUser.avtUrl, ownerUsername, navigate]);
 
@@ -115,7 +117,7 @@ const ChatRoom = () => {
     }, [messages]);
 
     const sendMessage = () => {
-        if (stompClient && stompClient.connected && (messageContent.trim() || selectedImage)) {
+        if (stompClientRef.current && stompClientRef.current.connected && (messageContent.trim() || selectedImage)) {
             const chatMessage = {
                 sender: currentUser.username,
                 avtUrl: currentUser.avtUrl,
@@ -135,7 +137,7 @@ const ChatRoom = () => {
                         reader.onloadend = () => {
                             const base64Image = reader.result.split(',')[1];
                             chatMessage.image = base64Image;
-                            stompClient.publish({
+                            stompClientRef.current.publish({
                                 destination: `/app/chat.sendMessage/${roomId}`,
                                 body: JSON.stringify(chatMessage)
                             });
@@ -149,7 +151,7 @@ const ChatRoom = () => {
                     },
                 });
             } else {
-                stompClient.publish({
+                stompClientRef.current.publish({
                     destination: `/app/chat.sendMessage/${roomId}`,
                     body: JSON.stringify(chatMessage)
                 });
@@ -167,6 +169,7 @@ const ChatRoom = () => {
         }
     };
 
+
     return (
         <div className="container">
             <Header usersInRoom={usersInRoom} />
@@ -174,7 +177,7 @@ const ChatRoom = () => {
             <div className="main-content">
                 <div className="video-section">
                     <ReactPlayer
-                        url="https://seeker-young-traveller-statutes.trycloudflare.com/video/play"
+                        url="https://colkidclub-hutech.id.vn/video/play"
                         className="react-player"
                         playing={true}
                         controls={true}
