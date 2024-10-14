@@ -25,7 +25,7 @@ const ChatRoom = () => {
     useEffect(() => {
         const fetchRoomInfo = async () => {
             try {
-                const response = await fetch(`https://ddf1-183-91-29-130.ngrok-free.app/api/rooms/${roomId}`, {
+                const response = await fetch(`https://seeker-young-traveller-statutes.trycloudflare.com/api/rooms/${roomId}`, {
                     credentials: 'include',
                 });
                 if (!response.ok) {
@@ -40,7 +40,7 @@ const ChatRoom = () => {
 
         fetchRoomInfo();
 
-        const socket = new SockJS('https://ddf1-183-91-29-130.ngrok-free.app/ws', null, {
+        const socket = new SockJS('https://seeker-young-traveller-statutes.trycloudflare.com/ws', null, {
             headers: { 'ngrok-skip-browser-warning': 'true' }
         });
         const client = new Client({
@@ -174,7 +174,7 @@ const ChatRoom = () => {
             <div className="main-content">
                 <div className="video-section">
                     <ReactPlayer
-                        url="https://ddf1-183-91-29-130.ngrok-free.app/video/play"
+                        url="https://seeker-young-traveller-statutes.trycloudflare.com/video/play"
                         className="react-player"
                         playing={true}
                         controls={true}

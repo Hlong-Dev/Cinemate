@@ -9,7 +9,7 @@ const RoomList = () => {
     useEffect(() => {
         const fetchRooms = async () => {
             try {
-                const response = await fetch("http://localhost:8080/api/rooms");
+                const response = await fetch("https://seeker-young-traveller-statutes.trycloudflare.com/api/rooms");
 
                 if (!response.ok) {
                     throw new Error(`Server error: ${response.status}`);
