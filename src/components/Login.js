@@ -59,7 +59,10 @@ const Login = () => {
                     <button type="submit" className="login-button">Login</button>
                 </form>
                 <button onClick={handleBack} className="back-button">Back</button>
-                <p className="help-text">Having trouble? <a href="#">Get help</a></p>
+                <p className="help-text">
+                    Having trouble? <a href="/register">Get help</a> or <a href="/register">Sign up</a>
+                </p>
+
             </div>
         </div>
     );

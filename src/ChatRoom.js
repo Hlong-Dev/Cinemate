@@ -17,7 +17,7 @@ const ChatRoom = () => {
     const [connected, setConnected] = useState(false);
     const [usersInRoom, setUsersInRoom] = useState([]);
     const [ownerUsername, setOwnerUsername] = useState('');
-    const currentUser = getUserFromToken() || { username: 'Unknown', avtUrl: 'https://i.imgur.com/Tr9qnkI.jpeg' };
+    const currentUser = getUserFromToken() || { username: 'Unknown', avtUrl: 'https://i.imgur.com/WxNkK7J.png' };
     const chatMessagesRef = useRef(null);
     const inputRef = useRef(null);
     const navigate = useNavigate();
@@ -188,7 +188,7 @@ const ChatRoom = () => {
                             {messages.map((message, index) => {
                                 const isSender = message.sender === currentUser.username;
                                 const isSameSenderAsPrevious = index > 0 && message.sender === messages[index - 1].sender;
-                                const avtUrl = message.avtUrl || 'https://i.imgur.com/Tr9qnkI.jpeg';
+                                const avtUrl = message.avtUrl || 'https://i.imgur.com/WxNkK7J.png';
 
                                 if (message.type === 'JOIN' || message.type === 'LEAVE') {
                                     return (
