@@ -343,6 +343,9 @@ const ChatRoom = () => {
         setCurrentVideoUrl(videoUrl);
         setShowVideoList(false);
 
+        // Loại bỏ đuôi .mp4 khỏi tiêu đề video
+        const videoTitleWithoutExtension = video.title.replace('.mp4', '');
+
         // Nếu là chủ phòng, gửi trạng thái video đến tất cả người dùng
         if (isOwner) {
             const videoState = {
@@ -356,8 +359,21 @@ const ChatRoom = () => {
                 destination: `/app/chat.videoUpdate/${roomId}`,
                 body: JSON.stringify(videoState)
             });
+
+            // Gửi thông báo phát video mới trong khung chat
+            const notificationMessage = {
+                sender: 'Thông Báo', // Bạn có thể chọn một tên người gửi như 'System'
+                content: `Chủ phòng đã phát video mới: ${videoTitleWithoutExtension}`, // Sử dụng tiêu đề không có đuôi .mp4
+                type: 'CHAT'
+            };
+            stompClientRef.current.publish({
+                destination: `/app/chat.sendMessage/${roomId}`,
+                body: JSON.stringify(notificationMessage)
+            });
         }
     };
+
+
 
     // Hàm tạm dừng video
     const handlePause = () => {
