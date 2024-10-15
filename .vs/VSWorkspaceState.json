@@ -5,8 +5,9 @@
     "\\src",
     "\\src\\api",
     "\\src\\components",
+    "\\src\\context",
     "\\src\\utils"
   ],
-  "SelectedNode": "\\src\\components\\Home.js",
+  "SelectedNode": "\\src\\ChatRoom.js",
   "PreviewInSolutionExplorer": false
 }
