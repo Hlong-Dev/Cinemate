@@ -1,5 +1,6 @@
-﻿import React, { useEffect, useState, useRef } from 'react';
-import { Client } from '@stomp/stompjs'; // No need for SockJS
+﻿// ChatRoom.js
+import React, { useEffect, useState, useRef } from 'react';
+import { Client } from '@stomp/stompjs'; // Không cần SockJS
 import { useNavigate, useParams } from 'react-router-dom';
 import './ChatRoom.css';
 import { getUserFromToken } from './utils/jwtUtils';
@@ -8,26 +9,51 @@ import Header from './components/Header';
 import ReactPlayer from 'react-player';
 
 const ChatRoom = () => {
-    const [isPlaying, setIsPlaying] = useState(true); // Manage video play/pause state
+    // Lấy roomId từ URL
     const { roomId } = useParams();
-    const [messages, setMessages] = useState([]);
-    const [messageContent, setMessageContent] = useState('');
-    const [selectedImage, setSelectedImage] = useState(null);
-    const [connected, setConnected] = useState(false);
-    const [usersInRoom, setUsersInRoom] = useState([]);
-    const [ownerUsername, setOwnerUsername] = useState('');
-    const [videoList, setVideoList] = useState([]); // Manage video list
-    const [currentVideoUrl, setCurrentVideoUrl] = useState(''); // Current playing video
-    const [showVideoList, setShowVideoList] = useState(true);
+
+    // Các trạng thái quản lý video
+    const [isPlaying, setIsPlaying] = useState(true); // Trạng thái phát/tạm dừng video
+    const [videoList, setVideoList] = useState([]); // Danh sách video
+    const [currentVideoUrl, setCurrentVideoUrl] = useState(''); // URL video hiện tại
+    const [showVideoList, setShowVideoList] = useState(true); // Hiển thị danh sách video
+
+    // Các trạng thái quản lý chat
+    const [messages, setMessages] = useState([]); // Danh sách tin nhắn
+    const [messageContent, setMessageContent] = useState(''); // Nội dung tin nhắn
+    const [selectedImage, setSelectedImage] = useState(null); // Ảnh được chọn để gửi
+    const [connected, setConnected] = useState(false); // Trạng thái kết nối WebSocket
+    const [usersInRoom, setUsersInRoom] = useState([]); // Danh sách người dùng trong phòng
+    const [ownerUsername, setOwnerUsername] = useState(''); // Username của chủ phòng
+
+    // Thông tin người dùng hiện tại
     const currentUser = getUserFromToken() || { username: 'Unknown', avtUrl: 'https://i.imgur.com/WxNkK7J.png' };
-    const chatMessagesRef = useRef(null);
-    const inputRef = useRef(null);
-    const navigate = useNavigate();
-    const playerRef = useRef(null); // Reference to ReactPlayer
 
-    // Reference to stompClient instance
-    const stompClientRef = useRef(null);
+    // Refs
+    const chatMessagesRef = useRef(null); // Ref để cuộn xuống cuối chat
+    const inputRef = useRef(null); // Ref cho input chat
+    const navigate = useNavigate(); // Hook điều hướng
+    const playerRef = useRef(null); // Ref cho ReactPlayer
+    const stompClientRef = useRef(null); // Ref cho stompClient
+    const ownerUsernameRef = useRef(''); // Ref cho ownerUsername
 
+    // Refs cho currentVideoUrl và isPlaying
+    const currentVideoUrlRef = useRef(currentVideoUrl);
+    const isPlayingRef = useRef(isPlaying);
+
+    // Cập nhật refs khi state thay đổi
+    useEffect(() => {
+        currentVideoUrlRef.current = currentVideoUrl;
+    }, [currentVideoUrl]);
+
+    useEffect(() => {
+        isPlayingRef.current = isPlaying;
+    }, [isPlaying]);
+
+    // Xác định xem người dùng hiện tại có phải là chủ phòng hay không
+    const isOwner = currentUser.username === ownerUsername;
+
+    // Fetch Room Info
     useEffect(() => {
         const fetchRoomInfo = async () => {
             try {
@@ -39,11 +65,17 @@ const ChatRoom = () => {
                 }
                 const roomData = await response.json();
                 setOwnerUsername(roomData.ownerUsername);
+                ownerUsernameRef.current = roomData.ownerUsername; // Lưu vào useRef
             } catch (error) {
                 console.error("Error fetching room info:", error);
             }
         };
 
+        fetchRoomInfo();
+    }, [roomId]);
+
+    // Fetch Video List
+    useEffect(() => {
         const fetchVideoList = async () => {
             try {
                 const response = await fetch('https://colkidclub-hutech.id.vn/video/list'); // Fetch video list
@@ -54,9 +86,11 @@ const ChatRoom = () => {
             }
         };
 
-        fetchRoomInfo();
         fetchVideoList();
+    }, []);
 
+    // Initialize WebSocket
+    useEffect(() => {
         // Initialize WebSocket only if not already initialized
         if (!stompClientRef.current) {
             const client = new Client({
@@ -65,6 +99,7 @@ const ChatRoom = () => {
                 heartbeatIncoming: 10000,
                 heartbeatOutgoing: 10000,
                 onConnect: () => {
+                    console.log('WebSocket connected');
                     setConnected(true);
                     const joinMessage = {
                         sender: currentUser.username,
@@ -76,28 +111,34 @@ const ChatRoom = () => {
                         body: JSON.stringify(joinMessage),
                     });
 
-                    // Single subscription handling all message types
+                    // Subscription để xử lý tất cả các loại thông điệp
                     client.subscribe(`/topic/${roomId}`, (message) => {
                         const receivedMessage = JSON.parse(message.body);
+                        console.log('Received message:', receivedMessage);
 
                         switch (receivedMessage.type) {
                             case 'OWNER_LEFT':
-                                if (currentUser.username !== ownerUsername) {
+                                if (currentUser.username !== ownerUsernameRef.current) {
                                     alert("Chủ phòng đã thoát. Bạn sẽ được chuyển về trang chủ.");
                                     navigate('/home');
                                 }
                                 break;
                             case 'JOIN':
                                 setUsersInRoom(prevUsers => [...prevUsers, receivedMessage.sender]);
-
-                                // If owner, send current video state to the new user
-                                if (currentUser.username === ownerUsername && playerRef.current) {
+                                setMessages(prevMessages => [...prevMessages, receivedMessage]); // Thêm vào messages
+                                // Nếu là chủ phòng, gửi trạng thái video hiện tại đến người dùng mới
+                                if (
+                                    currentUser.username === ownerUsernameRef.current &&
+                                    playerRef.current &&
+                                    currentVideoUrlRef.current // Sử dụng ref để kiểm tra
+                                ) {
                                     const videoState = {
-                                        videoUrl: currentVideoUrl,
+                                        videoUrl: currentVideoUrlRef.current,
                                         currentTime: playerRef.current.getCurrentTime(),
-                                        isPlaying: isPlaying,
+                                        isPlaying: isPlayingRef.current,
                                         type: 'VIDEO_UPDATE'
                                     };
+                                    console.log('Sending VIDEO_UPDATE:', videoState);
                                     stompClientRef.current.publish({
                                         destination: `/app/chat.videoUpdate/${roomId}`,
                                         body: JSON.stringify(videoState)
@@ -106,6 +147,7 @@ const ChatRoom = () => {
                                 break;
                             case 'LEAVE':
                                 setUsersInRoom(prevUsers => prevUsers.filter(user => user !== receivedMessage.sender));
+                                setMessages(prevMessages => [...prevMessages, receivedMessage]); // Thêm vào messages
                                 break;
                             case 'VIDEO_UPDATE':
                                 handleVideoUpdate(receivedMessage);
@@ -120,7 +162,7 @@ const ChatRoom = () => {
                                 handleVideoProgress(receivedMessage);
                                 break;
                             default:
-                                // Handle chat messages
+                                // Xử lý các thông điệp chat thông thường
                                 setMessages(prevMessages => [...prevMessages, receivedMessage]);
                         }
                     });
@@ -144,7 +186,7 @@ const ChatRoom = () => {
             client.activate();
         }
 
-        // Cleanup when component unmounts
+        // Cleanup khi component unmounts
         return () => {
             if (stompClientRef.current && stompClientRef.current.connected) {
                 const leaveMessage = {
@@ -157,61 +199,82 @@ const ChatRoom = () => {
                     body: JSON.stringify(leaveMessage),
                 });
                 stompClientRef.current.deactivate();
+                console.log('WebSocket disconnected');
             }
         };
-    }, [roomId, currentUser.username, currentUser.avtUrl, ownerUsername, navigate]);
+    }, [roomId, currentUser.username, currentUser.avtUrl, navigate]); // Loại bỏ currentVideoUrl và isPlaying khỏi dependencies
 
-
+    // Cuộn xuống cuối chat khi có tin nhắn mới
     useEffect(() => {
         if (chatMessagesRef.current) {
             chatMessagesRef.current.scrollTop = chatMessagesRef.current.scrollHeight;
         }
     }, [messages]);
 
-    // Handle VIDEO_UPDATE messages
+    // Hàm xử lý VIDEO_UPDATE
     const handleVideoUpdate = (message) => {
-        setCurrentVideoUrl(message.videoUrl);
-        setShowVideoList(false);
-        setIsPlaying(message.isPlaying); // Set play state based on message
-        if (message.currentTime !== undefined && playerRef.current) {
-            setTimeout(() => {
-                playerRef.current.seekTo(message.currentTime, 'seconds');
-            }, 100); // Ensure video is loaded before seeking
+        console.log('Handling VIDEO_UPDATE:', message);
+        if (message.videoUrl) {
+            setCurrentVideoUrl(message.videoUrl);
+            setShowVideoList(false);
+            setIsPlaying(message.isPlaying); // Cập nhật trạng thái phát
+            if (message.currentTime !== undefined && playerRef.current) {
+                setTimeout(() => {
+                    playerRef.current.seekTo(message.currentTime, 'seconds');
+                }, 100); // Đảm bảo video đã tải trước khi tua
+            }
+        } else {
+            // Nếu không có video nào đang phát, hiển thị danh sách video
+            setCurrentVideoUrl('');
+            setShowVideoList(true);
         }
     };
 
-    // Handle VIDEO_PLAY messages
+    // Hàm xử lý VIDEO_PLAY
     const handleVideoPlay = (message) => {
-        setCurrentVideoUrl(message.videoUrl);
-        setIsPlaying(true);
-        if (message.currentTime !== undefined && playerRef.current) {
-            setTimeout(() => {
-                playerRef.current.seekTo(message.currentTime, 'seconds');
-            }, 100);
+        console.log('Handling VIDEO_PLAY:', message);
+        if (message.videoUrl) {
+            setCurrentVideoUrl(message.videoUrl);
+            setIsPlaying(true);
+            setShowVideoList(false);
+            if (message.currentTime !== undefined && playerRef.current) {
+                setTimeout(() => {
+                    playerRef.current.seekTo(message.currentTime, 'seconds');
+                }, 100);
+            }
         }
     };
 
-    // Handle VIDEO_PAUSE messages
+    // Hàm xử lý VIDEO_PAUSE
     const handleVideoPause = (message) => {
-        setCurrentVideoUrl(message.videoUrl);
-        setIsPlaying(false);
-        if (message.currentTime !== undefined && playerRef.current) {
-            setTimeout(() => {
-                playerRef.current.seekTo(message.currentTime, 'seconds');
-            }, 100);
+        console.log('Handling VIDEO_PAUSE:', message);
+        if (message.videoUrl) {
+            setCurrentVideoUrl(message.videoUrl);
+            setIsPlaying(false);
+            setShowVideoList(false);
+            if (message.currentTime !== undefined && playerRef.current) {
+                setTimeout(() => {
+                    playerRef.current.seekTo(message.currentTime, 'seconds');
+                }, 100);
+            }
         }
     };
 
-    // Handle VIDEO_PROGRESS messages
+    // Hàm xử lý VIDEO_PROGRESS (tua video)
     const handleVideoProgress = (message) => {
-        setCurrentVideoUrl(message.videoUrl);
-        if (message.currentTime !== undefined && playerRef.current) {
-            setTimeout(() => {
-                playerRef.current.seekTo(message.currentTime, 'seconds');
-            }, 100);
+        console.log('Handling VIDEO_PROGRESS:', message);
+        if (message.videoUrl) {
+            setCurrentVideoUrl(message.videoUrl);
+            setShowVideoList(false);
+            if (message.currentTime !== undefined && playerRef.current) {
+                setTimeout(() => {
+                    playerRef.current.seekTo(message.currentTime, 'seconds');
+                }, 100);
+            }
         }
     };
 
+    // Hàm gửi tin nhắn
     const sendMessage = () => {
         if (stompClientRef.current && stompClientRef.current.connected && (messageContent.trim() || selectedImage)) {
             const chatMessage = {
@@ -233,6 +296,7 @@ const ChatRoom = () => {
                         reader.onloadend = () => {
                             const base64Image = reader.result.split(',')[1];
                             chatMessage.image = base64Image;
+                            console.log('Sending CHAT message with image:', chatMessage);
                             stompClientRef.current.publish({
                                 destination: `/app/chat.sendMessage/${roomId}`,
                                 body: JSON.stringify(chatMessage)
@@ -247,6 +311,7 @@ const ChatRoom = () => {
                     },
                 });
             } else {
+                console.log('Sending CHAT message:', chatMessage);
                 stompClientRef.current.publish({
                     destination: `/app/chat.sendMessage/${roomId}`,
                     body: JSON.stringify(chatMessage)
@@ -258,6 +323,7 @@ const ChatRoom = () => {
         }
     };
 
+    // Hàm xử lý upload ảnh
     const handleImageUpload = (e) => {
         if (e.target.files[0]) {
             setSelectedImage(e.target.files[0]);
@@ -265,19 +331,27 @@ const ChatRoom = () => {
         }
     };
 
+    // Hàm chọn video để phát
     const playVideo = (video) => {
+        if (!isOwner) {
+            alert("Chỉ chủ phòng mới có thể chọn video.");
+            return;
+        }
+
         const videoUrl = `https://colkidclub-hutech.id.vn/video/play/${encodeURIComponent(video.title)}`;
+        console.log(`Playing video: ${videoUrl}`);
         setCurrentVideoUrl(videoUrl);
         setShowVideoList(false);
 
-        // If owner, send video update to all users
-        if (currentUser.username === ownerUsername) {
+        // Nếu là chủ phòng, gửi trạng thái video đến tất cả người dùng
+        if (isOwner) {
             const videoState = {
                 videoUrl: videoUrl,
-                currentTime: 0, // Start from beginning
-                isPlaying: true, // Start playing
+                currentTime: 0, // Bắt đầu từ đầu
+                isPlaying: true, // Bắt đầu phát
                 type: 'VIDEO_UPDATE'
             };
+            console.log('Sending VIDEO_UPDATE:', videoState);
             stompClientRef.current.publish({
                 destination: `/app/chat.videoUpdate/${roomId}`,
                 body: JSON.stringify(videoState)
@@ -285,9 +359,10 @@ const ChatRoom = () => {
         }
     };
 
-    // Pause video
+    // Hàm tạm dừng video
     const handlePause = () => {
-        if (currentUser.username === ownerUsername && isPlaying) { // Only if currently playing
+        if (isOwner && isPlaying) { // Chỉ nếu đang phát và là chủ phòng
+            console.log('Pausing video');
             setIsPlaying(false);
             const videoState = {
                 videoUrl: currentVideoUrl,
@@ -301,9 +376,10 @@ const ChatRoom = () => {
         }
     };
 
-    // Play video
+    // Hàm phát video
     const handlePlay = () => {
-        if (currentUser.username === ownerUsername && !isPlaying) { // Only if currently paused
+        if (isOwner && !isPlaying) { // Chỉ nếu đang tạm dừng và là chủ phòng
+            console.log('Playing video');
             setIsPlaying(true);
             const videoState = {
                 videoUrl: currentVideoUrl,
@@ -318,17 +394,18 @@ const ChatRoom = () => {
         }
     };
 
-    // Send video progress when seeking
+    // Hàm gửi tiến trình video khi tua
     const handleProgress = (state) => {
-        if (currentUser.username === ownerUsername && playerRef.current) {
+        if (isOwner && playerRef.current) {
             const currentTime = state.playedSeconds;
             const actualTime = playerRef.current.getCurrentTime();
-            if (Math.abs(currentTime - actualTime) > 1) { // Only send if significant change
+            if (Math.abs(currentTime - actualTime) > 1) { // Chỉ gửi nếu thay đổi đáng kể
                 const videoState = {
                     videoUrl: currentVideoUrl,
                     currentTime: currentTime,
                     type: 'VIDEO_PROGRESS'
                 };
+                console.log('Sending VIDEO_PROGRESS:', videoState);
                 stompClientRef.current.publish({
                     destination: `/app/chat.videoUpdate/${roomId}`,
                     body: JSON.stringify(videoState)
@@ -337,16 +414,26 @@ const ChatRoom = () => {
         }
     };
 
+    const handleShowVideoList = () => {
+        setShowVideoList(true);
+    };
+
     return (
         <div className="container">
-            <Header usersInRoom={usersInRoom} />
+            <Header usersInRoom={usersInRoom} onSearchClick={handleShowVideoList} />
 
             <div className="main-content">
                 <div className="video-section">
                     {showVideoList ? (
-                        <div className="grid-container">
+                        <div className={`grid-container ${!isOwner ? 'disabled' : ''}`}>
                             {videoList.map((video, index) => (
-                                <div className="video-card" key={index} onClick={() => playVideo(video)}>
+                                <div
+                                    className={`video-card ${!isOwner ? 'disabled-card' : ''}`}
+                                    key={index}
+                                    onClick={() => playVideo(video)}
+                                    style={{ cursor: isOwner ? 'pointer' : 'not-allowed', opacity: isOwner ? 1 : 0.6 }}
+                                    title={isOwner ? 'Click to play video' : 'Bạn không có quyền chọn video'}
+                                >
                                     <img
                                         src={`https://colkidclub-hutech.id.vn${video.thumbnail}`} // Full URL to thumbnail
                                         alt={`Thumbnail of ${video.title}`}
@@ -360,19 +447,25 @@ const ChatRoom = () => {
                             ))}
                         </div>
                     ) : (
-                        <ReactPlayer
-                            ref={playerRef} // Attach ref to ReactPlayer
-                            url={currentVideoUrl}
-                            className="react-player"
-                            playing={isPlaying} // Use isPlaying state to control playback
-                            controls={true}
-                            width="100%"
-                            height="100%"
-                            onPause={handlePause} // Triggered when video is paused
-                            onPlay={handlePlay} // Triggered when video starts playing
-                            onProgress={handleProgress} // Triggered during video progress (seeking)
-                            onEnded={() => setShowVideoList(true)} // Show video list when video ends
-                        />
+                        currentVideoUrl ? ( // Chỉ hiển thị ReactPlayer nếu currentVideoUrl không trống
+                            <ReactPlayer
+                                ref={playerRef} // Attach ref to ReactPlayer
+                                url={currentVideoUrl}
+                                className="react-player"
+                                playing={isPlaying} // Use isPlaying state to control playback
+                                controls={isOwner} // Chỉ hiển thị điều khiển nếu là chủ phòng
+                                width="100%"
+                                height="100%"
+                                onPause={handlePause} // Triggered khi video bị tạm dừng
+                                onPlay={handlePlay} // Triggered khi video bắt đầu phát
+                                onProgress={handleProgress} // Triggered trong quá trình phát video (tua)
+                                onEnded={() => setShowVideoList(true)} // Hiển thị danh sách video khi video kết thúc
+                            />
+                        ) : (
+                            <div className="no-video-placeholder">
+                                <p>Không có video nào đang phát. Vui lòng chọn một video từ danh sách.</p>
+                            </div>
+                        )
                     )}
                 </div>
                 <div className="chat-section">
@@ -391,7 +484,7 @@ const ChatRoom = () => {
                                                     <img src={avtUrl} alt="Avatar" />
                                                 </div>
                                                 <div className="message-content">
-                                                    <em>{message.sender} {message.type === 'JOIN' ? 'has joined the Room' : 'has left the Room'}</em>
+                                                    <em>{message.sender} {message.type === 'JOIN' ? 'đã tham gia phòng' : 'đã rời khỏi phòng'}</em>
                                                 </div>
                                             </div>
                                         </li>
@@ -424,6 +517,7 @@ const ChatRoom = () => {
                         </ul>
                     </div>
 
+                    {/* Preview ảnh khi chọn */}
                     {selectedImage && (
                         <div className="image-preview-container">
                             <img src={URL.createObjectURL(selectedImage)} alt="Preview" style={{ maxWidth: '200px', marginBottom: '10px' }} />
@@ -431,6 +525,7 @@ const ChatRoom = () => {
                         </div>
                     )}
 
+                    {/* Input chat */}
                     <div className="chat-input-container">
                         <input
                             className="chat-input"
@@ -459,6 +554,7 @@ const ChatRoom = () => {
                         />
                     </div>
 
+                    {/* Thông báo kết nối */}
                     {!connected && <p className="connection-status">Đang kết nối đến máy chủ chat...</p>}
                 </div>
             </div>

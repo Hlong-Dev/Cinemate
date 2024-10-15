@@ -1,10 +1,11 @@
-﻿import React, { useState } from 'react';
+﻿// Header.js
+import React, { useState } from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faTimes, faBars, faCog, faSearch, faCheck, faUserFriends, faGlobe, faUsers } from '@fortawesome/free-solid-svg-icons';
 import { useNavigate, useParams } from 'react-router-dom';
 import '../Header.css';
 
-const Header = ({ usersInRoom }) => {
+const Header = ({ usersInRoom, onSearchClick }) => { // Thêm onSearchClick vào props
     const { roomId } = useParams(); // Lấy roomId từ URL
     const [showPopup, setShowPopup] = useState(false);
     const [showUserList, setShowUserList] = useState(false); // Trạng thái để hiển thị danh sách người dùng
@@ -56,7 +57,9 @@ const Header = ({ usersInRoom }) => {
                 </div>
                 <div className="item"><FontAwesomeIcon icon={faBars} className="icon" /></div>
                 <div className="item"><FontAwesomeIcon icon={faCog} className="icon" /></div>
-                <div className="item"><FontAwesomeIcon icon={faSearch} className="icon" /></div>
+                <div className="item" onClick={onSearchClick}> {/* Thêm onClick handler */}
+                    <FontAwesomeIcon icon={faSearch} className="icon" />
+                </div>
                 <div className="item logo">
                     <img src="https://i.imgur.com/Rp89NPj.png" alt="Rave" />
                 </div>
