@@ -213,14 +213,16 @@ const ChatRoom = () => {
                         </div>
 
                     ) : (
-                        <ReactPlayer
-                            url={currentVideoUrl}
-                            className="react-player"
-                            playing={true}
-                            controls={true}
-                            width="100%"
-                            height="100%"
-                        />
+                            <ReactPlayer
+                                url={currentVideoUrl}
+                                className="react-player"
+                                playing={true}
+                                controls={true}
+                                width="100%"
+                                height="100%"
+                                onEnded={() => setShowVideoList(true)} // Khi video kết thúc, hiển thị lại danh sách video
+                            />
+
                     )}
                 </div>
                 <div className="chat-section">
