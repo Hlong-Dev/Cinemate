@@ -58,9 +58,11 @@ const ChatRoom = () => {
     const playYoutubeVideo = (videoId) => {
         const videoUrl = `https://www.youtube.com/watch?v=${videoId}`;
         setCurrentVideoUrl(videoUrl);
-        setShowVideoList(false);
+        setShowVideoList(false); // Ẩn danh sách video
+        setYoutubeResults([]); // Xóa kết quả tìm kiếm YouTube sau khi phát
         setIsPlaying(true);
     };
+
     // Cập nhật refs khi state thay đổi
     useEffect(() => {
         currentVideoUrlRef.current = currentVideoUrl;
@@ -460,34 +462,39 @@ const ChatRoom = () => {
 
             <div className="main-content">
                 <div className="video-section">
-                    <div className="search-bar">
-                        <input
-                            type="text"
-                            value={searchTerm}
-                            onChange={(e) => setSearchTerm(e.target.value)}
-                            placeholder="Tìm kiếm video trên YouTube"
-                        />
-                        <button onClick={searchYoutubeVideos}>Tìm kiếm</button>
-                    </div>
+                    {/* Chỉ hiển thị thanh tìm kiếm và kết quả tìm kiếm nếu showVideoList là true */}
+                    {showVideoList && (
+                        <>
+                            <div className="search-bar">
+                                <input
+                                    type="text"
+                                    value={searchTerm}
+                                    onChange={(e) => setSearchTerm(e.target.value)}
+                                    placeholder="Tìm kiếm video trên YouTube"
+                                />
+                                <button onClick={searchYoutubeVideos}>Tìm kiếm</button>
+                            </div>
 
-                    {/* Hiển thị kết quả tìm kiếm từ YouTube */}
-                    {youtubeResults.length > 0 && (
-                        <div className="youtube-results">
-                            {youtubeResults.map((video) => (
-                                <div
-                                    key={video.id.videoId}
-                                    className="youtube-video-item"
-                                    onClick={() => playYoutubeVideo(video.id.videoId)}
-                                    style={{ cursor: 'pointer' }}
-                                >
-                                    <img
-                                        src={video.snippet.thumbnails.default.url}
-                                        alt={video.snippet.title}
-                                    />
-                                    <p>{video.snippet.title}</p>
+                            {/* Hiển thị kết quả tìm kiếm từ YouTube */}
+                            {youtubeResults.length > 0 && (
+                                <div className="youtube-results">
+                                    {youtubeResults.map((video) => (
+                                        <div
+                                            key={video.id.videoId}
+                                            className="youtube-video-item"
+                                            onClick={() => playYoutubeVideo(video.id.videoId)}
+                                            style={{ cursor: 'pointer' }}
+                                        >
+                                            <img
+                                                src={video.snippet.thumbnails.default.url}
+                                                alt={video.snippet.title}
+                                            />
+                                            <p>{video.snippet.title}</p>
+                                        </div>
+                                    ))}
                                 </div>
-                            ))}
-                        </div>
+                            )}
+                        </>
                     )}
                     {showVideoList ? (
                         <div className={`grid-container ${!isOwner ? 'disabled' : ''}`}>
