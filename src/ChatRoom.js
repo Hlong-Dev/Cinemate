@@ -7,7 +7,7 @@ import { getUserFromToken } from './utils/jwtUtils';
 import Compressor from 'compressorjs';
 import Header from './components/Header';
 import ReactPlayer from 'react-player';
-
+import axios from 'axios'; // Thêm axios để gọi API
 const ChatRoom = () => {
     // Lấy roomId từ URL
     const { roomId } = useParams();
@@ -18,6 +18,8 @@ const ChatRoom = () => {
     const [currentVideoUrl, setCurrentVideoUrl] = useState(''); // URL video hiện tại
     const [showVideoList, setShowVideoList] = useState(true); // Hiển thị danh sách video
 
+    const [searchTerm, setSearchTerm] = useState(''); // Từ khóa tìm kiếm
+    const [youtubeResults, setYoutubeResults] = useState([]); // Kết quả tìm kiếm YouTube
     // Các trạng thái quản lý chat
     const [messages, setMessages] = useState([]); // Danh sách tin nhắn
     const [messageContent, setMessageContent] = useState(''); // Nội dung tin nhắn
@@ -36,11 +38,29 @@ const ChatRoom = () => {
     const playerRef = useRef(null); // Ref cho ReactPlayer
     const stompClientRef = useRef(null); // Ref cho stompClient
     const ownerUsernameRef = useRef(''); // Ref cho ownerUsername
+    const API_KEY = 'AIzaSyBL1HyURHH5Sdb9iNK-8jlPNTooqwy-fns';
 
     // Refs cho currentVideoUrl và isPlaying
     const currentVideoUrlRef = useRef(currentVideoUrl);
     const isPlayingRef = useRef(isPlaying);
+    const searchYoutubeVideos = async () => {
+        try {
+            const response = await axios.get(
+                `https://www.googleapis.com/youtube/v3/search?part=snippet&q=${searchTerm}&type=video&key=${API_KEY}&maxResults=5`
+            );
+            setYoutubeResults(response.data.items); // Lưu kết quả tìm kiếm vào state
+        } catch (error) {
+            console.error('Error fetching YouTube results:', error);
+        }
+    };
 
+    // Hàm phát video YouTube
+    const playYoutubeVideo = (videoId) => {
+        const videoUrl = `https://www.youtube.com/watch?v=${videoId}`;
+        setCurrentVideoUrl(videoUrl);
+        setShowVideoList(false);
+        setIsPlaying(true);
+    };
     // Cập nhật refs khi state thay đổi
     useEffect(() => {
         currentVideoUrlRef.current = currentVideoUrl;
@@ -440,6 +460,35 @@ const ChatRoom = () => {
 
             <div className="main-content">
                 <div className="video-section">
+                    <div className="search-bar">
+                        <input
+                            type="text"
+                            value={searchTerm}
+                            onChange={(e) => setSearchTerm(e.target.value)}
+                            placeholder="Tìm kiếm video trên YouTube"
+                        />
+                        <button onClick={searchYoutubeVideos}>Tìm kiếm</button>
+                    </div>
+
+                    {/* Hiển thị kết quả tìm kiếm từ YouTube */}
+                    {youtubeResults.length > 0 && (
+                        <div className="youtube-results">
+                            {youtubeResults.map((video) => (
+                                <div
+                                    key={video.id.videoId}
+                                    className="youtube-video-item"
+                                    onClick={() => playYoutubeVideo(video.id.videoId)}
+                                    style={{ cursor: 'pointer' }}
+                                >
+                                    <img
+                                        src={video.snippet.thumbnails.default.url}
+                                        alt={video.snippet.title}
+                                    />
+                                    <p>{video.snippet.title}</p>
+                                </div>
+                            ))}
+                        </div>
+                    )}
                     {showVideoList ? (
                         <div className={`grid-container ${!isOwner ? 'disabled' : ''}`}>
                             {videoList.map((video, index) => (
@@ -464,19 +513,20 @@ const ChatRoom = () => {
                         </div>
                     ) : (
                         currentVideoUrl ? ( // Chỉ hiển thị ReactPlayer nếu currentVideoUrl không trống
-                            <ReactPlayer
-                                ref={playerRef} // Attach ref to ReactPlayer
-                                url={currentVideoUrl}
-                                className="react-player"
-                                playing={isPlaying} // Use isPlaying state to control playback
-                                controls={isOwner} // Chỉ hiển thị điều khiển nếu là chủ phòng
-                                width="100%"
-                                height="100%"
-                                onPause={handlePause} // Triggered khi video bị tạm dừng
-                                onPlay={handlePlay} // Triggered khi video bắt đầu phát
-                                onProgress={handleProgress} // Triggered trong quá trình phát video (tua)
-                                onEnded={() => setShowVideoList(true)} // Hiển thị danh sách video khi video kết thúc
-                            />
+                                <ReactPlayer
+                                    ref={playerRef} // Attach ref to ReactPlayer
+                                    url={currentVideoUrl}
+                                    className={`react-player ${isOwner ? 'owner' : ''}`} // Thêm class 'owner' nếu là chủ phòng
+                                    playing={isPlaying} // Use isPlaying state to control playback
+                                    controls
+                                    width="100%"
+                                    height="100%"
+                                    onPause={handlePause} // Triggered khi video bị tạm dừng
+                                    onPlay={handlePlay} // Triggered khi video bắt đầu phát
+                                    onProgress={handleProgress} // Triggered trong quá trình phát video (tua)
+                                    onEnded={() => setShowVideoList(true)} // Hiển thị danh sách video khi video kết thúc
+                                />
+
                         ) : (
                             <div className="no-video-placeholder">
                                 <p>Không có video nào đang phát. Vui lòng chọn một video từ danh sách.</p>

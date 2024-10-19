@@ -285,4 +285,35 @@
     font-size: 0.9em;
 }
 
+/* Ẩn các nút điều khiển cho người không phải là chủ phòng */
+.react-player:not(.owner) video::-webkit-media-controls-play-button,
+.react-player:not(.owner) video::-webkit-media-controls-current-time-display,
+.react-player:not(.owner) video::-webkit-media-controls-seek-back-button,
+.react-player:not(.owner) video::-webkit-media-controls-seek-forward-button,
+.react-player:not(.owner) video::-webkit-media-controls-timeline {
+    display: none !important; /* Ẩn các nút play/pause và thanh timeline */
+}
+
+/* Hiển thị tất cả các điều khiển cho chủ phòng */
+.react-player.owner video::-webkit-media-controls-play-button,
+.react-player.owner video::-webkit-media-controls-current-time-display,
+.react-player.owner video::-webkit-media-controls-seek-back-button,
+.react-player.owner video::-webkit-media-controls-seek-forward-button,
+.react-player.owner video::-webkit-media-controls-timeline {
+    display: block !important; /* Hiển thị các nút cho chủ phòng */
+}
+.youtube-results {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+}
+
+.youtube-video-item {
+    width: 150px;
+    cursor: pointer;
+}
+
+    .youtube-video-item img {
+        width: 100%;
+    }
 
