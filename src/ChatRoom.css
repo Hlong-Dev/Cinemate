@@ -53,10 +53,16 @@
     flex: 2.6;
     width: 100%;
     position: relative;
+    max-height: 90vh; /* Chiếm 70% chiều cao của màn hình */
+    overflow-y: auto; /* Bật cuộn khi danh sách quá dài */
+    padding: 10px; /* Khoảng cách giữa nội dung và viền */
 }
+
 
 .video-list-grid {
     padding: 20px;
+    max-height: 400px; /* Giới hạn chiều cao */
+    overflow-y: auto; /* Thêm thanh cuộn khi nội dung vượt quá chiều cao */
 }
 
 .grid-container {
@@ -302,18 +308,5 @@
 .react-player.owner video::-webkit-media-controls-timeline {
     display: block !important; /* Hiển thị các nút cho chủ phòng */
 }
-.youtube-results {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 10px;
-}
 
-.youtube-video-item {
-    width: 150px;
-    cursor: pointer;
-}
-
-    .youtube-video-item img {
-        width: 100%;
-    }
 

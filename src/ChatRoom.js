@@ -46,7 +46,7 @@ const ChatRoom = () => {
     const searchYoutubeVideos = async () => {
         try {
             const response = await axios.get(
-                `https://www.googleapis.com/youtube/v3/search?part=snippet&q=${searchTerm}&type=video&key=${API_KEY}&maxResults=5`
+                `https://www.googleapis.com/youtube/v3/search?part=snippet&q=${searchTerm}&type=video&key=${API_KEY}&maxResults=20`
             );
             setYoutubeResults(response.data.items); // Lưu kết quả tìm kiếm vào state
         } catch (error) {
@@ -147,20 +147,18 @@ const ChatRoom = () => {
                                 break;
                             case 'JOIN':
                                 setUsersInRoom(prevUsers => [...prevUsers, receivedMessage.sender]);
-                                setMessages(prevMessages => [...prevMessages, receivedMessage]); // Thêm vào messages
-                                // Nếu là chủ phòng, gửi trạng thái video hiện tại đến người dùng mới
-                                if (
-                                    currentUser.username === ownerUsernameRef.current &&
-                                    playerRef.current &&
-                                    currentVideoUrlRef.current // Sử dụng ref để kiểm tra
-                                ) {
+                                setMessages(prevMessages => [...prevMessages, receivedMessage]);
+
+                                // Nếu là chủ phòng, chỉ gửi trạng thái video hiện tại mà không tạm dừng video
+                                if (currentUser.username === ownerUsernameRef.current && playerRef.current && currentVideoUrlRef.current) {
                                     const videoState = {
                                         videoUrl: currentVideoUrlRef.current,
                                         currentTime: playerRef.current.getCurrentTime(),
                                         isPlaying: isPlayingRef.current,
-                                        type: 'VIDEO_UPDATE'
+                                        type: 'VIDEO_UPDATE',
+                                        forNewUser: true  // Flag này sẽ giúp nhận biết rằng đây là thông tin cho người mới
                                     };
-                                    console.log('Sending VIDEO_UPDATE:', videoState);
+
                                     stompClientRef.current.publish({
                                         destination: `/app/chat.videoUpdate/${roomId}`,
                                         body: JSON.stringify(videoState)
@@ -234,23 +232,27 @@ const ChatRoom = () => {
     }, [messages]);
 
     // Hàm xử lý VIDEO_UPDATE
+    // Hàm xử lý VIDEO_UPDATE
     const handleVideoUpdate = (message) => {
         console.log('Handling VIDEO_UPDATE:', message);
-        if (message.videoUrl) {
+
+        // Chỉ cập nhật cho người mới, không ảnh hưởng đến chủ phòng và các thành viên hiện tại
+        if (message.forNewUser && message.videoUrl) {
             setCurrentVideoUrl(message.videoUrl);
             setShowVideoList(false);
-            setIsPlaying(message.isPlaying); // Cập nhật trạng thái phát
+
+            if (message.isPlaying !== isPlaying) {
+                setIsPlaying(message.isPlaying);  // Chỉ cập nhật khi trạng thái phát khác nhau
+            }
+
             if (message.currentTime !== undefined && playerRef.current) {
                 setTimeout(() => {
                     playerRef.current.seekTo(message.currentTime, 'seconds');
                 }, 100); // Đảm bảo video đã tải trước khi tua
             }
-        } else {
-            // Nếu không có video nào đang phát, hiển thị danh sách video
-            setCurrentVideoUrl('');
-            setShowVideoList(true);
         }
     };
+
 
     // Hàm xử lý VIDEO_PLAY
     const handleVideoPlay = (message) => {
@@ -474,30 +476,35 @@ const ChatRoom = () => {
                                 />
                                 <button onClick={searchYoutubeVideos}>Tìm kiếm</button>
                             </div>
+                        </>
+                    )}
 
-                            {/* Hiển thị kết quả tìm kiếm từ YouTube */}
+                    {showVideoList ? (
+                        <div className="grid-container">
+                            {/* Hiển thị kết quả tìm kiếm YouTube trên đầu */}
                             {youtubeResults.length > 0 && (
-                                <div className="youtube-results">
+                                <>
+                             
                                     {youtubeResults.map((video) => (
                                         <div
                                             key={video.id.videoId}
-                                            className="youtube-video-item"
+                                            className="video-card"
                                             onClick={() => playYoutubeVideo(video.id.videoId)}
-                                            style={{ cursor: 'pointer' }}
                                         >
                                             <img
                                                 src={video.snippet.thumbnails.default.url}
                                                 alt={video.snippet.title}
+                                                className="thumbnail"
                                             />
-                                            <p>{video.snippet.title}</p>
+                                            <div className="video-info">
+                                                <p className="video-title">{video.snippet.title}</p>
+                                                <span className="video-duration">YouTube Video</span> {/* Ghi rõ là video YouTube */}
+                                            </div>
                                         </div>
                                     ))}
-                                </div>
+                                </>
                             )}
-                        </>
-                    )}
-                    {showVideoList ? (
-                        <div className={`grid-container ${!isOwner ? 'disabled' : ''}`}>
+
                             {videoList.map((video, index) => (
                                 <div
                                     className={`video-card ${!isOwner ? 'disabled-card' : ''}`}
@@ -519,21 +526,20 @@ const ChatRoom = () => {
                             ))}
                         </div>
                     ) : (
-                        currentVideoUrl ? ( // Chỉ hiển thị ReactPlayer nếu currentVideoUrl không trống
-                                <ReactPlayer
-                                    ref={playerRef} // Attach ref to ReactPlayer
-                                    url={currentVideoUrl}
-                                    className={`react-player ${isOwner ? 'owner' : ''}`} // Thêm class 'owner' nếu là chủ phòng
-                                    playing={isPlaying} // Use isPlaying state to control playback
-                                    controls
-                                    width="100%"
-                                    height="100%"
-                                    onPause={handlePause} // Triggered khi video bị tạm dừng
-                                    onPlay={handlePlay} // Triggered khi video bắt đầu phát
-                                    onProgress={handleProgress} // Triggered trong quá trình phát video (tua)
-                                    onEnded={() => setShowVideoList(true)} // Hiển thị danh sách video khi video kết thúc
-                                />
-
+                        currentVideoUrl ? (
+                            <ReactPlayer
+                                ref={playerRef}
+                                url={currentVideoUrl}
+                                className={`react-player ${isOwner ? 'owner' : ''}`}
+                                playing={isPlaying}
+                                controls
+                                width="100%"
+                                height="100%"
+                                onPause={handlePause}
+                                onPlay={handlePlay}
+                                onProgress={handleProgress}
+                                onEnded={() => setShowVideoList(true)}
+                            />
                         ) : (
                             <div className="no-video-placeholder">
                                 <p>Không có video nào đang phát. Vui lòng chọn một video từ danh sách.</p>
@@ -541,6 +547,7 @@ const ChatRoom = () => {
                         )
                     )}
                 </div>
+
                 <div className="chat-section">
                     <div className="chat-messages" id="chatMessages" ref={chatMessagesRef}>
                         <ul>
