@@ -308,5 +308,48 @@
 .react-player.owner video::-webkit-media-controls-timeline {
     display: block !important; /* Hiển thị các nút cho chủ phòng */
 }
+@media (max-width: 768px) {
+    /* Đảm bảo phần video nằm trên phần chat */
+    .main-content {
+        flex-direction: column; /* Đặt video nằm trên chat */
+    }
 
+    .video-section {
+        width: 100%;
+        min-height: 35vh; /* Đặt chiều cao tối thiểu cho phần video là 35% màn hình */
+        max-height: 50vh; /* Tối đa 50% màn hình cho phần video */
+        padding: 5px;
+        position: relative;
+        overflow: hidden; /* Ẩn phần video nếu vượt quá chiều cao */
+    }
+
+    /* Phần chat sẽ nằm dưới phần video */
+    .chat-section {
+        flex: none;
+        height: auto;
+        max-height: 50vh; /* Giới hạn chiều cao phần chat còn lại là 50% */
+        padding: 10px;
+        overflow-y: auto; /* Bật cuộn nếu cần thiết */
+        background-color: #1a1a1a; /* Giữ nền đen cho phần chat */
+    }
+
+    /* Điều chỉnh cho các tin nhắn trong phần chat */
+    .chat-messages {
+        max-height: calc(50vh - 60px); /* Đảm bảo chiều cao phần chat không quá lớn */
+        overflow-y: auto; /* Bật cuộn khi nội dung quá dài */
+    }
+
+    /* Đảm bảo phần thông tin hoặc các thông báo không chiếm quá nhiều không gian */
+    .system-notification {
+        max-width: 100%;
+        text-align: center;
+        padding: 5px;
+        font-size: 0.9em;
+    }
+
+    .chat-input-container {
+        padding: 5px;
+        background-color: #2a2a2a;
+    }
+}
 
