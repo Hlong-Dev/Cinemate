@@ -86,7 +86,7 @@
 }
 
     .services img {
-        width: 150px;
+        width: 135px;
         height: 63px;
         object-fit: contain;
     }
@@ -99,7 +99,9 @@
     font-size: 24px;
     margin-bottom: 10px;
 }
-
+.white-icon {
+    filter: brightness(0) invert(1);
+}
 
 /*code moi*/
 .sidebar {
@@ -145,3 +147,37 @@
                 .sidebar ul li a i {
                     margin-right: 10px;
                 }
+.services {
+    display: flex;
+    overflow-x: auto;
+    gap: 20px;
+    padding: 20px;
+    white-space: nowrap;
+    /* Ẩn thanh cuộn nhưng vẫn giữ chức năng cuộn */
+    -ms-overflow-style: none; /* IE và Edge */
+    scrollbar-width: none; /* Firefox */
+}
+
+    /* Ẩn thanh cuộn cho Chrome, Safari và Opera */
+    .services::-webkit-scrollbar {
+        display: none;
+    }
+
+/* Container cho mỗi service */
+.service-item {
+    position: relative;
+    min-width: 150px;
+    padding: 10px;
+    border-radius: 8px;
+    transition: all 0.3s ease;
+}
+
+    .service-item:hover {
+        background-color: rgba(255, 255, 255, 0.1);
+        transform: translateY(-2px);
+    }
+
+    .service-item img {
+   
+        border-radius: 4px;
+    }

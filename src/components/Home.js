@@ -77,12 +77,37 @@ const Home = () => {
             </nav>
 
             <div className="services">
-                <img src="https://i.imgur.com/Q1iIpAE.png" alt="YouTube" />
-                <img src="https://i.imgur.com/xn6Ehfv.png" alt="Twitch" />
-                <img src="https://i.imgur.com/Vf6tfih.png" alt="Netflix" />
-                <img src="https://i.imgur.com/yN245me.png" alt="Disney+" />
-                <img src="https://i.imgur.com/zgsS7Of.png" alt="Prime Video" />
-                <img src="https://i.imgur.com/axFodMO.png" alt="Playlist" />
+                <div className="service-item">
+                    <img src="https://i.imgur.com/Q1iIpAE.png" alt="YouTube" />
+                </div>
+                <div className="service-item">
+                    <img src="https://i.imgur.com/xn6Ehfv.png" alt="Twitch" />
+                </div>
+                <div className="service-item">
+                    <img src="https://i.imgur.com/Vf6tfih.png" alt="Netflix" />
+                </div>
+                <div className="service-item">
+                    <img src="https://i.imgur.com/yN245me.png" alt="Disney+" />
+                </div>
+                <div className="service-item">
+                    <img src="https://i.imgur.com/zgsS7Of.png" alt="Prime Video" />
+                </div>
+                <div className="service-item">
+                    <img src="https://i.imgur.com/axFodMO.png" alt="Playlist" />
+                </div>
+                <div className="service-item">
+                    <img src="https://i.imgur.com/gNSGsSN.png" alt="tubi" />
+                </div>
+                <div className="service-item">
+                    <img src="https://i.imgur.com/MEXsqoF.png" alt="gg" />
+                </div>
+                <div className="service-item">
+                    <img src="https://i.imgur.com/QMVPZjU.png" alt="gg drive" className="white-icon" />
+                </div>
+              
+                <div className="service-item">
+                    <img src="https://i.imgur.com/s2O07An.png" alt="Playlist" />
+                </div>
             </div>
 
             <div className="content">
