@@ -43,14 +43,28 @@ const ChatRoom = () => {
     // Refs cho currentVideoUrl và isPlaying
     const currentVideoUrlRef = useRef(currentVideoUrl);
     const isPlayingRef = useRef(isPlaying);
+    const [isLoading, setIsLoading] = useState(false);
+    const [imagesLoaded, setImagesLoaded] = useState(0);
+
     const searchYoutubeVideos = async () => {
         try {
+            if (!searchTerm.trim()) {
+                setYoutubeResults([]);
+                setIsLoading(false);
+                setImagesLoaded(0);
+                return;
+            }
+
+            setIsLoading(true);
+            setImagesLoaded(0);
             const response = await axios.get(
                 `https://www.googleapis.com/youtube/v3/search?part=snippet&q=${searchTerm}&type=video&key=${API_KEY}&maxResults=20`
             );
-            setYoutubeResults(response.data.items); // Lưu kết quả tìm kiếm vào state
+            setYoutubeResults(response.data.items);
         } catch (error) {
             console.error('Error fetching YouTube results:', error);
+            setIsLoading(false);
+            setImagesLoaded(0);
         }
     };
 
@@ -96,6 +110,45 @@ const ChatRoom = () => {
     };
 
     // Tách logic xử lý video params ra một useEffect riêng
+    useEffect(() => {
+        const delayDebounceFn = setTimeout(() => {
+            if (searchTerm) {
+                searchYoutubeVideos();
+            } else {
+                setYoutubeResults([]);
+                setIsLoading(false);
+                setImagesLoaded(0);
+            }
+        }, 500);
+
+        return () => clearTimeout(delayDebounceFn);
+    }, [searchTerm]);
+
+    // Thêm useEffect để theo dõi việc load ảnh
+    useEffect(() => {
+        if (youtubeResults.length > 0) {
+            setImagesLoaded(0);
+
+            const imageLoaders = youtubeResults.map((video) => {
+                const img = new Image();
+                img.src = video.snippet.thumbnails.medium.url;
+                img.onload = () => {
+                    setImagesLoaded((prev) => prev + 1);
+                };
+                img.onerror = () => {
+                    setImagesLoaded((prev) => prev + 1);
+                };
+                return img;
+            });
+
+            return () => {
+                imageLoaders.forEach(img => {
+                    img.onload = null;
+                    img.onerror = null;
+                });
+            };
+        }
+    }, [youtubeResults]);
     useEffect(() => {
         if (isWebSocketReady && stompClientRef.current) {
             const params = new URLSearchParams(window.location.search);
@@ -298,7 +351,7 @@ const ChatRoom = () => {
     }, [messages]);
 
     // Hàm xử lý VIDEO_UPDATE
-    // Hàm xử lý VIDEO_UPDATE
+
     const handleVideoUpdate = (message) => {
         console.log('Handling VIDEO_UPDATE:', message);
 
@@ -521,7 +574,7 @@ const ChatRoom = () => {
     };
 
     const handleShowVideoList = () => {
-        setShowVideoList(true);
+        setShowVideoList(prev => !prev); // Toggle showVideoList
     };
 
     return (
@@ -529,8 +582,8 @@ const ChatRoom = () => {
             <Header usersInRoom={usersInRoom} onSearchClick={handleShowVideoList} />
 
             <div className="main-content">
-                <div className="video-section">
-                    {/* Chỉ hiển thị thanh tìm kiếm và kết quả tìm kiếm nếu showVideoList là true */}
+                <div className={`video-section ${showVideoList ? 'with-list' : ''}`}>
+                    {/* Hiển thị thanh tìm kiếm nếu showVideoList là true */}
                     {showVideoList && (
                         <>
                             <div className="search-bar">
@@ -540,14 +593,36 @@ const ChatRoom = () => {
                                     onChange={(e) => setSearchTerm(e.target.value)}
                                     placeholder="Tìm kiếm video trên YouTube"
                                 />
-                                <button onClick={searchYoutubeVideos}>Tìm kiếm</button>
                             </div>
+
+                            {isLoading && (
+                                <div className="loading-bar-container">
+                                    <div className="loading-bar"></div>
+                                </div>
+                            )}
                         </>
                     )}
 
-                    {showVideoList ? (
+                    {/* Luôn hiển thị video player nếu có currentVideoUrl */}
+                    {currentVideoUrl && (
+                        <ReactPlayer
+                            ref={playerRef}
+                            url={currentVideoUrl}
+                            className={`react-player ${isOwner ? 'owner' : ''}`}
+                            playing={isPlaying}
+                            controls
+                            width="100%"
+                            height="100%"
+                            onPause={handlePause}
+                            onPlay={handlePlay}
+                            onProgress={handleProgress}
+                            onEnded={() => setShowVideoList(true)}
+                        />
+                    )}
+
+                    {/* Hiển thị danh sách video tìm kiếm nếu showVideoList là true */}
+                    {showVideoList && (
                         <div className="grid-container">
-                            {/* Hiển thị kết quả tìm kiếm YouTube trên đầu */}
                             {youtubeResults.length > 0 && (
                                 <>
                                     {youtubeResults.map((video) => (
@@ -575,7 +650,6 @@ const ChatRoom = () => {
                                             </div>
                                         </div>
                                     ))}
-                                    ))}
                                 </>
                             )}
 
@@ -588,7 +662,7 @@ const ChatRoom = () => {
                                     title={isOwner ? 'Click to play video' : 'Bạn không có quyền chọn video'}
                                 >
                                     <img
-                                        src={`https://colkidclub-hutech.id.vn${video.thumbnail}`} // Full URL to thumbnail
+                                        src={`https://colkidclub-hutech.id.vn${video.thumbnail}`}
                                         alt={`Thumbnail of ${video.title}`}
                                         className="thumbnail"
                                     />
@@ -599,26 +673,6 @@ const ChatRoom = () => {
                                 </div>
                             ))}
                         </div>
-                    ) : (
-                        currentVideoUrl ? (
-                            <ReactPlayer
-                                ref={playerRef}
-                                url={currentVideoUrl}
-                                className={`react-player ${isOwner ? 'owner' : ''}`}
-                                playing={isPlaying}
-                                controls
-                                width="100%"
-                                height="100%"
-                                onPause={handlePause}
-                                onPlay={handlePlay}
-                                onProgress={handleProgress}
-                                onEnded={() => setShowVideoList(true)}
-                            />
-                        ) : (
-                            <div className="no-video-placeholder">
-                                <p>Không có video nào đang phát. Vui lòng chọn một video từ danh sách.</p>
-                            </div>
-                        )
                     )}
                 </div>
 

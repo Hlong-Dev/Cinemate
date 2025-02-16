@@ -53,14 +53,71 @@
     flex: 2.6;
     width: 100%;
     position: relative;
-    max-height: 90vh; /* Chiếm 70% chiều cao của màn hình */
-    overflow-y: auto; /* Bật cuộn khi danh sách quá dài */
-    padding: 10px; /* Khoảng cách giữa nội dung và viền */
-    -ms-overflow-style: none; /* Ẩn thanh cuộn trên IE và Edge */
+    max-height: 90vh;
+    overflow-y: auto;
+    padding: 10px;
+    -ms-overflow-style: none;
     scrollbar-width: none;
 }
 
+    .video-section.with-list .react-player {
+        position: fixed;
+        top: 70px; /* Đặt cách top 70px để không bị che bởi header */
+        right: 20px;
+        width: 400px !important;
+        height: 225px !important;
+        z-index: 1000;
+        background: #000;
+        border-radius: 8px;
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+    }
 
+    .video-section.with-list .grid-container {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+        gap: 20px;
+        margin-top: 20px; /* Thêm margin-top thay vì padding-bottom */
+    }
+
+/* Responsive cho màn hình nhỏ */
+@media (max-width: 768px) {
+    .video-section.with-list .react-player {
+        width: 240px !important;
+        height: 135px !important;
+        top: 60px; /* Điều chỉnh khoảng cách với top cho mobile */
+        right: 10px;
+    }
+
+    .video-section.with-list .grid-container {
+        margin-top: 10px;
+    }
+}
+
+.search-bar {
+    position: sticky;
+    top: 0;
+    background: #1a1a1a;
+    padding: 10px;
+    z-index: 999;
+    border-bottom: 1px solid #333;
+}
+
+.minimized-video-close {
+    position: absolute;
+    top: -10px;
+    right: -10px;
+    width: 24px;
+    height: 24px;
+    background: #ff0000;
+    border: none;
+    border-radius: 50%;
+    color: white;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1001;
+}
 .video-list-grid {
     padding: 20px;
     max-height: 400px; /* Giới hạn chiều cao */
@@ -355,4 +412,6 @@
         background-color: #2a2a2a;
     }
 }
+
+
 
