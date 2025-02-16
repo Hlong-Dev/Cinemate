@@ -39,7 +39,7 @@ const ChatRoom = () => {
     const stompClientRef = useRef(null); // Ref cho stompClient
     const ownerUsernameRef = useRef(''); // Ref cho ownerUsername
     const API_KEY = 'AIzaSyBL1HyURHH5Sdb9iNK-8jlPNTooqwy-fns';
-
+    const [isWebSocketReady, setIsWebSocketReady] = useState(false);
     // Refs cho currentVideoUrl và isPlaying
     const currentVideoUrlRef = useRef(currentVideoUrl);
     const isPlayingRef = useRef(isPlaying);
@@ -55,14 +55,78 @@ const ChatRoom = () => {
     };
 
     // Hàm phát video YouTube
-    const playYoutubeVideo = (videoId) => {
+    const playYoutubeVideo = (videoId, videoTitle) => {
+        if (!isOwner) {
+            alert("Chỉ chủ phòng mới có thể chọn video.");
+            return;
+        }
+
         const videoUrl = `https://www.youtube.com/watch?v=${videoId}`;
         setCurrentVideoUrl(videoUrl);
-        setShowVideoList(false); // Ẩn danh sách video
-        setYoutubeResults([]); // Xóa kết quả tìm kiếm YouTube sau khi phát
+        setShowVideoList(false);
+        setYoutubeResults([]);
         setIsPlaying(true);
+
+        // Gửi thông báo video mới cho mọi người
+        const videoState = {
+            videoUrl: videoUrl,
+            currentTime: 0,
+            isPlaying: true,
+            type: 'VIDEO_UPDATE'
+        };
+
+        if (stompClientRef.current && stompClientRef.current.connected) {
+            stompClientRef.current.publish({
+                destination: `/app/chat.videoUpdate/${roomId}`,
+                body: JSON.stringify(videoState)
+            });
+
+            // Gửi thông báo trong chat
+            const notificationMessage = {
+                sender: 'Thông Báo',
+                content: `Chủ phòng đã phát video YouTube: ${videoTitle}`,
+                type: 'CHAT'
+            };
+
+            stompClientRef.current.publish({
+                destination: `/app/chat.sendMessage/${roomId}`,
+                body: JSON.stringify(notificationMessage)
+            });
+        }
     };
 
+    // Tách logic xử lý video params ra một useEffect riêng
+    useEffect(() => {
+        if (isWebSocketReady && stompClientRef.current) {
+            const params = new URLSearchParams(window.location.search);
+            const videoId = params.get('videoId');
+            const autoplay = params.get('autoplay');
+
+            if (videoId && autoplay === 'true') {
+                const videoUrl = `https://www.youtube.com/watch?v=${videoId}`;
+
+                const videoState = {
+                    videoUrl: videoUrl,
+                    currentTime: 0,
+                    isPlaying: true,
+                    type: 'VIDEO_UPDATE'
+                };
+
+                try {
+                    stompClientRef.current.publish({
+                        destination: `/app/chat.videoUpdate/${roomId}`,
+                        body: JSON.stringify(videoState)
+                    });
+
+                    setCurrentVideoUrl(videoUrl);
+                    setIsPlaying(true);
+                    setShowVideoList(false);
+                } catch (error) {
+                    console.error('Error sending video state:', error);
+                }
+            }
+        }
+    }, [isWebSocketReady, roomId]);
     // Cập nhật refs khi state thay đổi
     useEffect(() => {
         currentVideoUrlRef.current = currentVideoUrl;
@@ -123,6 +187,8 @@ const ChatRoom = () => {
                 onConnect: () => {
                     console.log('WebSocket connected');
                     setConnected(true);
+                    setIsWebSocketReady(true); // Đánh dấu WebSocket đã sẵn sàng
+
                     const joinMessage = {
                         sender: currentUser.username,
                         avtUrl: currentUser.avtUrl,
@@ -484,12 +550,19 @@ const ChatRoom = () => {
                             {/* Hiển thị kết quả tìm kiếm YouTube trên đầu */}
                             {youtubeResults.length > 0 && (
                                 <>
-                             
                                     {youtubeResults.map((video) => (
                                         <div
                                             key={video.id.videoId}
-                                            className="video-card"
-                                            onClick={() => playYoutubeVideo(video.id.videoId)}
+                                            className={`video-card ${!isOwner ? 'disabled-card' : ''}`}
+                                            onClick={() => playYoutubeVideo(
+                                                video.id.videoId,
+                                                video.snippet.title
+                                            )}
+                                            style={{
+                                                cursor: isOwner ? 'pointer' : 'not-allowed',
+                                                opacity: isOwner ? 1 : 0.6
+                                            }}
+                                            title={isOwner ? 'Click to play video' : 'Bạn không có quyền chọn video'}
                                         >
                                             <img
                                                 src={video.snippet.thumbnails.default.url}
@@ -498,9 +571,10 @@ const ChatRoom = () => {
                                             />
                                             <div className="video-info">
                                                 <p className="video-title">{video.snippet.title}</p>
-                                                <span className="video-duration">YouTube Video</span> {/* Ghi rõ là video YouTube */}
+                                                <span className="video-duration">YouTube Video</span>
                                             </div>
                                         </div>
+                                    ))}
                                     ))}
                                 </>
                             )}

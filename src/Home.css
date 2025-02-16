@@ -181,3 +181,89 @@
    
         border-radius: 4px;
     }
+
+
+.youtube-results-row {
+    display: flex;
+    overflow-x: auto;
+    gap: 20px;
+    padding: 20px;
+    white-space: nowrap;
+    background: #1a1a1a;
+    -ms-overflow-style: none; /* Ẩn thanh cuộn trên IE và Edge */
+    scrollbar-width: none; /* Ẩn thanh cuộn trên Firefox */
+}
+
+    /* Ẩn thanh cuộn trên Chrome, Safari và Opera */
+    .youtube-results-row::-webkit-scrollbar {
+        display: none;
+    }
+
+.video-card {
+    flex: 0 0 300px; /* Cố định chiều rộng cho mỗi card */
+    background: #242424;
+    border-radius: 8px;
+    overflow: hidden;
+    transition: all 0.3s ease;
+    cursor: pointer;
+}
+
+    .video-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+    }
+
+.video-thumbnail {
+    width: 100%;
+    aspect-ratio: 16/9;
+    object-fit: cover;
+}
+
+.video-info {
+    padding: 12px;
+}
+
+    .video-info h3 {
+        color: white;
+        font-size: 14px;
+        margin: 0 0 8px 0;
+        line-height: 1.4;
+        display: -webkit-box;
+        -webkit-line-clamp: 2;
+        -webkit-box-orient: vertical;
+        overflow: hidden;
+        white-space: normal; /* Cho phép text wrap */
+    }
+
+    .video-info p {
+        color: white;
+        font-size: 12px;
+        margin: 0;
+    }
+/* Add these styles to your Home.css file */
+
+.loading-bar-container {
+    width: 100%;
+    height: 4px;
+    background-color: black;
+    position: relative;
+    overflow: hidden;
+}
+
+.loading-bar {
+    position: absolute;
+    width: 30%;
+    height: 100%;
+    background-color: #DCDCDC;
+    animation: loading-animation 1.5s infinite linear;
+}
+
+@keyframes loading-animation {
+    0% {
+        left: -30%;
+    }
+
+    100% {
+        left: 100%;
+    }
+}

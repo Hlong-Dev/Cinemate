@@ -56,6 +56,8 @@
     max-height: 90vh; /* Chiếm 70% chiều cao của màn hình */
     overflow-y: auto; /* Bật cuộn khi danh sách quá dài */
     padding: 10px; /* Khoảng cách giữa nội dung và viền */
+    -ms-overflow-style: none; /* Ẩn thanh cuộn trên IE và Edge */
+    scrollbar-width: none;
 }
 
 
@@ -63,6 +65,7 @@
     padding: 20px;
     max-height: 400px; /* Giới hạn chiều cao */
     overflow-y: auto; /* Thêm thanh cuộn khi nội dung vượt quá chiều cao */
+
 }
 
 .grid-container {
@@ -76,7 +79,7 @@
     display: flex;
     flex-direction: column;
     align-items: center;
-    background-color: #f5f5f5;
+   
     padding: 10px;
     border-radius: 8px;
     transition: transform 0.3s ease;
