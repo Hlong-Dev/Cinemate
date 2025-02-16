@@ -45,7 +45,8 @@ const ChatRoom = () => {
     const isPlayingRef = useRef(isPlaying);
     const [isLoading, setIsLoading] = useState(false);
     const [imagesLoaded, setImagesLoaded] = useState(0);
-
+    const [syncInterval, setSyncInterval] = useState(null);
+    const isOwner = currentUser.username === ownerUsername;
     const searchYoutubeVideos = async () => {
         try {
             if (!searchTerm.trim()) {
@@ -150,36 +151,53 @@ const ChatRoom = () => {
         }
     }, [youtubeResults]);
     useEffect(() => {
-        if (isWebSocketReady && stompClientRef.current) {
-            const params = new URLSearchParams(window.location.search);
-            const videoId = params.get('videoId');
-            const autoplay = params.get('autoplay');
-
-            if (videoId && autoplay === 'true') {
-                const videoUrl = `https://www.youtube.com/watch?v=${videoId}`;
-
+        // Hàm gửi trạng thái video
+        const sendVideoState = () => {
+            // Chỉ gửi trạng thái nếu video đang phát và không đang trong chế độ tìm kiếm
+            if (isOwner && playerRef.current && currentVideoUrl && !showVideoList) {
                 const videoState = {
-                    videoUrl: videoUrl,
-                    currentTime: 0,
-                    isPlaying: true,
+                    videoUrl: currentVideoUrl,
+                    currentTime: playerRef.current.getCurrentTime(),
+                    isPlaying: isPlaying,
                     type: 'VIDEO_UPDATE'
                 };
 
-                try {
+                if (stompClientRef.current && stompClientRef.current.connected) {
                     stompClientRef.current.publish({
                         destination: `/app/chat.videoUpdate/${roomId}`,
                         body: JSON.stringify(videoState)
                     });
-
-                    setCurrentVideoUrl(videoUrl);
-                    setIsPlaying(true);
-                    setShowVideoList(false);
-                } catch (error) {
-                    console.error('Error sending video state:', error);
                 }
             }
+        };
+
+        // Chỉ thiết lập interval khi:
+        // 1. Là chủ phòng
+        // 2. Có video đang phát
+        // 3. Không đang trong chế độ tìm kiếm
+        if (isOwner && currentVideoUrl && !showVideoList) {
+            // Clear interval cũ nếu có
+            if (syncInterval) {
+                clearInterval(syncInterval);
+            }
+
+            // Tạo interval mới để gửi trạng thái mỗi 5 giây
+            const interval = setInterval(sendVideoState, 5000);
+            setSyncInterval(interval);
+        } else if (syncInterval) {
+            // Nếu không thỏa mãn điều kiện và có interval, clear nó
+            clearInterval(syncInterval);
+            setSyncInterval(null);
         }
-    }, [isWebSocketReady, roomId]);
+
+        // Cleanup function
+        return () => {
+            if (syncInterval) {
+                clearInterval(syncInterval);
+            }
+        };
+    }, [isOwner, currentVideoUrl, isPlaying, roomId, showVideoList]);
+
     // Cập nhật refs khi state thay đổi
     useEffect(() => {
         currentVideoUrlRef.current = currentVideoUrl;
@@ -190,7 +208,7 @@ const ChatRoom = () => {
     }, [isPlaying]);
 
     // Xác định xem người dùng hiện tại có phải là chủ phòng hay không
-    const isOwner = currentUser.username === ownerUsername;
+  
 
     // Fetch Room Info
     useEffect(() => {
@@ -268,20 +286,24 @@ const ChatRoom = () => {
                                 setUsersInRoom(prevUsers => [...prevUsers, receivedMessage.sender]);
                                 setMessages(prevMessages => [...prevMessages, receivedMessage]);
 
-                                // Nếu là chủ phòng, chỉ gửi trạng thái video hiện tại mà không tạm dừng video
-                                if (currentUser.username === ownerUsernameRef.current && playerRef.current && currentVideoUrlRef.current) {
+                                // Nếu là chủ phòng, gửi ngay trạng thái video hiện tại
+                                if (currentUser.username === ownerUsernameRef.current &&
+                                    playerRef.current &&
+                                    currentVideoUrlRef.current) {
                                     const videoState = {
                                         videoUrl: currentVideoUrlRef.current,
                                         currentTime: playerRef.current.getCurrentTime(),
                                         isPlaying: isPlayingRef.current,
-                                        type: 'VIDEO_UPDATE',
-                                        forNewUser: true  // Flag này sẽ giúp nhận biết rằng đây là thông tin cho người mới
+                                        type: 'VIDEO_UPDATE'
                                     };
 
-                                    stompClientRef.current.publish({
-                                        destination: `/app/chat.videoUpdate/${roomId}`,
-                                        body: JSON.stringify(videoState)
-                                    });
+                                    // Đợi một chút để đảm bảo người dùng mới đã sẵn sàng nhận trạng thái
+                                    setTimeout(() => {
+                                        stompClientRef.current.publish({
+                                            destination: `/app/chat.videoUpdate/${roomId}`,
+                                            body: JSON.stringify(videoState)
+                                        });
+                                    }, 1000);
                                 }
                                 break;
                             case 'LEAVE':
@@ -355,19 +377,20 @@ const ChatRoom = () => {
     const handleVideoUpdate = (message) => {
         console.log('Handling VIDEO_UPDATE:', message);
 
-        // Chỉ cập nhật cho người mới, không ảnh hưởng đến chủ phòng và các thành viên hiện tại
-        if (message.forNewUser && message.videoUrl) {
+        if (message.videoUrl && !isOwner) {  // Chỉ người xem mới cập nhật
             setCurrentVideoUrl(message.videoUrl);
             setShowVideoList(false);
 
-            if (message.isPlaying !== isPlaying) {
-                setIsPlaying(message.isPlaying);  // Chỉ cập nhật khi trạng thái phát khác nhau
+            if (message.isPlaying !== undefined) {
+                setIsPlaying(message.isPlaying);
             }
 
             if (message.currentTime !== undefined && playerRef.current) {
-                setTimeout(() => {
+                const currentPlayerTime = playerRef.current.getCurrentTime();
+                // Chỉ tua video nếu chênh lệch thời gian > 2 giây
+                if (Math.abs(currentPlayerTime - message.currentTime) > 2) {
                     playerRef.current.seekTo(message.currentTime, 'seconds');
-                }, 100); // Đảm bảo video đã tải trước khi tua
+                }
             }
         }
     };
@@ -610,13 +633,28 @@ const ChatRoom = () => {
                             url={currentVideoUrl}
                             className={`react-player ${isOwner ? 'owner' : ''}`}
                             playing={isPlaying}
-                            controls
+                    
                             width="100%"
                             height="100%"
                             onPause={handlePause}
                             onPlay={handlePlay}
                             onProgress={handleProgress}
                             onEnded={() => setShowVideoList(true)}
+                            config={{
+                                youtube: {
+                                    playerVars: {
+                                        controls: isOwner ? 1 : 0,
+                                        disablekb: 1, // Vô hiệu hóa keyboard controls cho tất cả
+                                        modestbranding: 1,
+                                        playsinline: 1,
+                                        rel: 0,
+                                        showinfo: 0,
+                                        iv_load_policy: 3,
+                                        fs: isOwner ? 1 : 0, // Vô hiệu hóa chế độ toàn màn hình cho non-owner
+                                    }
+                                }
+                            }}
+                            style={{ pointerEvents: isOwner ? 'auto' : 'none' }} // Vô hiệu hóa tất cả tương tác chuột
                         />
                     )}
 
