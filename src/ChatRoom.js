@@ -38,7 +38,7 @@ const ChatRoom = () => {
     const playerRef = useRef(null); // Ref cho ReactPlayer
     const stompClientRef = useRef(null); // Ref cho stompClient
     const ownerUsernameRef = useRef(''); // Ref cho ownerUsername
-    const API_KEY = 'AIzaSyBL1HyURHH5Sdb9iNK-8jlPNTooqwy-fns';
+    const API_KEY = 'AIzaSyDRBV8kBUTJTDjI_2xj_vRdKIKS5H35CJg';
     const [isWebSocketReady, setIsWebSocketReady] = useState(false);
     // Refs cho currentVideoUrl và isPlaying
     const currentVideoUrlRef = useRef(currentVideoUrl);
@@ -58,7 +58,7 @@ const ChatRoom = () => {
             setIsLoading(true);
             setImagesLoaded(0);
             const response = await axios.get(
-                `https://www.googleapis.com/youtube/v3/search?part=snippet&q=${searchTerm}&type=video&key=${API_KEY}&maxResults=20`
+                `https://www.googleapis.com/youtube/v3/search?part=snippet&q=${searchTerm}&type=video&key=${API_KEY}&maxResults=10`
             );
             setYoutubeResults(response.data.items);
         } catch (error) {
