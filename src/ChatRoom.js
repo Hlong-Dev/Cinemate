@@ -7,6 +7,7 @@ import { getUserFromToken } from './utils/jwtUtils';
 import Compressor from 'compressorjs';
 import Header from './components/Header';
 import ReactPlayer from 'react-player';
+import { useSearchParams } from 'react-router-dom';
 import axios from 'axios'; // Thêm axios để gọi API
 const ChatRoom = () => {
     // Lấy roomId từ URL
@@ -47,6 +48,10 @@ const ChatRoom = () => {
     const [imagesLoaded, setImagesLoaded] = useState(0);
     const [syncInterval, setSyncInterval] = useState(null);
     const isOwner = currentUser.username === ownerUsername;
+    const [searchParams] = useSearchParams();
+    const urlVideoId = searchParams.get('videoId');
+    const autoplay = searchParams.get('autoplay') === 'true';
+    // Hàm search Video
     const searchYoutubeVideos = async () => {
         try {
             if (!searchTerm.trim()) {
@@ -124,7 +129,63 @@ const ChatRoom = () => {
 
         return () => clearTimeout(delayDebounceFn);
     }, [searchTerm]);
+    // Ảuto play video from Params
+    useEffect(() => {
+        const initializeVideoFromUrl = async () => {
+            if (urlVideoId && isWebSocketReady && stompClientRef.current?.connected) {
+                try {
+                    // Fetch video details from YouTube API
+                    const videoDetailsResponse = await axios.get(
+                        `https://www.googleapis.com/youtube/v3/videos?part=snippet&id=${urlVideoId}&key=${API_KEY}`
+                    );
 
+                    const videoTitle = videoDetailsResponse.data.items[0]?.snippet.title || 'Unknown Video';
+                    const videoUrl = `https://www.youtube.com/watch?v=${urlVideoId}`;
+
+                    // Set video state
+                    setCurrentVideoUrl(videoUrl);
+                    setShowVideoList(false);
+                    setIsPlaying(autoplay);
+
+                    // If user is room owner, broadcast video state to all users
+                    if (isOwner) {
+                        const videoState = {
+                            videoUrl: videoUrl,
+                            currentTime: 0,
+                            isPlaying: autoplay,
+                            type: 'VIDEO_UPDATE'
+                        };
+
+                        stompClientRef.current.publish({
+                            destination: `/app/chat.videoUpdate/${roomId}`,
+                            body: JSON.stringify(videoState)
+                        });
+
+                        // Send chat notification with video title
+                        const notificationMessage = {
+                            sender: 'Thông Báo',
+                            content: `Chủ phòng đã phát video YouTube: ${videoTitle}`,
+                            type: 'CHAT'
+                        };
+
+                        stompClientRef.current.publish({
+                            destination: `/app/chat.sendMessage/${roomId}`,
+                            body: JSON.stringify(notificationMessage)
+                        });
+                    }
+                } catch (error) {
+                    console.error('Error fetching video details:', error);
+                    // Still play the video even if we can't get the title
+                    const videoUrl = `https://www.youtube.com/watch?v=${urlVideoId}`;
+                    setCurrentVideoUrl(videoUrl);
+                    setShowVideoList(false);
+                    setIsPlaying(autoplay);
+                }
+            }
+        };
+
+        initializeVideoFromUrl();
+    }, [urlVideoId, autoplay, isWebSocketReady, isOwner, roomId]);
     // Thêm useEffect để theo dõi việc load ảnh
     useEffect(() => {
         if (youtubeResults.length > 0) {
@@ -150,6 +211,7 @@ const ChatRoom = () => {
             };
         }
     }, [youtubeResults]);
+    // Thêm gửi trạng thái video state
     useEffect(() => {
         // Hàm gửi trạng thái video
         const sendVideoState = () => {
@@ -595,11 +657,11 @@ const ChatRoom = () => {
             }
         }
     };
-
+    // Hàm show lisr video
     const handleShowVideoList = () => {
         setShowVideoList(prev => !prev); // Toggle showVideoList
     };
-
+    // Tr
     return (
         <div className="container">
             <Header usersInRoom={usersInRoom} onSearchClick={handleShowVideoList} />
