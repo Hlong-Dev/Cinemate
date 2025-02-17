@@ -226,7 +226,7 @@ const ChatRoom = () => {
                 roomId: roomId
             };
             stompClientRef.current.publish({
-                destination: `/topic/${roomId}`,
+                destination: `/topic/${roomId}`,  // Changed to /topic to ensure all users receive it
                 body: JSON.stringify(queueUpdate)
             });
         }
@@ -265,7 +265,7 @@ const ChatRoom = () => {
             const nextVideo = videoQueue[0];
             const updatedQueue = videoQueue.slice(1);
 
-            // Update queue
+            // Update local queue state
             setVideoQueue(updatedQueue);
             localStorage.setItem(`videoQueue_${roomId}`, JSON.stringify(updatedQueue));
 
@@ -276,18 +276,18 @@ const ChatRoom = () => {
 
             // Broadcast updates
             if (stompClientRef.current && stompClientRef.current.connected) {
-                // Queue update
+                // First, broadcast the queue update to ensure all users remove the played video
                 const queueUpdate = {
                     type: 'QUEUE_UPDATE',
                     queue: updatedQueue,
                     roomId: roomId
                 };
                 stompClientRef.current.publish({
-                    destination: `/app/chat.queueUpdate/${roomId}`,
+                    destination: `/topic/${roomId}`,  // Changed to /topic to ensure all users receive it
                     body: JSON.stringify(queueUpdate)
                 });
 
-                // Video state update
+                // Then, broadcast the video state update
                 const videoState = {
                     videoUrl: nextVideo.url,
                     currentTime: 0,
@@ -295,11 +295,11 @@ const ChatRoom = () => {
                     type: 'VIDEO_UPDATE'
                 };
                 stompClientRef.current.publish({
-                    destination: `/app/chat.videoUpdate/${roomId}`,
+                    destination: `/topic/${roomId}`,  // Changed to /topic to ensure all users receive it
                     body: JSON.stringify(videoState)
                 });
 
-                // Notification message
+                // Finally, send the chat notification
                 const notificationMessage = {
                     sender: 'Thông Báo',
                     content: `Đang phát video tiếp theo: ${nextVideo.title}`,
@@ -311,7 +311,6 @@ const ChatRoom = () => {
                 });
             }
         } else {
-            // No videos in queue, show video list
             setShowVideoList(true);
         }
     };
@@ -726,14 +725,11 @@ const ChatRoom = () => {
                                 break;
                             case 'QUEUE_UPDATE':
                                 console.log('Received QUEUE_UPDATE:', receivedMessage);
-                                console.log('Current roomId:', roomId);
-                                console.log('Message roomId:', receivedMessage.roomId);
                                 if (receivedMessage.roomId === roomId) {
                                     console.log('Updating queue with:', receivedMessage.queue);
+                                    // Update both state and localStorage
                                     setVideoQueue(receivedMessage.queue);
                                     localStorage.setItem(`videoQueue_${roomId}`, JSON.stringify(receivedMessage.queue));
-                                } else {
-                                    console.log('RoomId mismatch, not updating queue');
                                 }
                                 break;
                             default:
@@ -793,7 +789,11 @@ const ChatRoom = () => {
 
         if (message.videoUrl && !isOwner) {  // Chỉ người xem mới cập nhật
             setCurrentVideoUrl(message.videoUrl);
-            setShowVideoList(false);
+
+            // Chỉ đóng video list khi người dùng là chủ phòng
+            if (isOwner) {
+                setShowVideoList(false);
+            }
 
             if (message.isPlaying !== undefined) {
                 setIsPlaying(message.isPlaying);
