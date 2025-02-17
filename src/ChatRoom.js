@@ -39,7 +39,7 @@ const ChatRoom = () => {
     const playerRef = useRef(null); // Ref cho ReactPlayer
     const stompClientRef = useRef(null); // Ref cho stompClient
     const ownerUsernameRef = useRef(''); // Ref cho ownerUsername
-    const API_KEY = 'AIzaSyCi1QkAQ8IXkQKme9yl34BB0WPCcSg8_MQ';
+    const API_KEY = 'AIzaSyD9hNv29hep7MhOqBdpeh21HFBBfSxCTXY';
     const [showSuccessModal, setShowSuccessModal] = useState(false);
     const [successMessage, setSuccessMessage] = useState('');
     const [showQueueModal, setShowQueueModal] = useState(false);
