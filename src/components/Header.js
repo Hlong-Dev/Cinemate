@@ -5,7 +5,7 @@ import { faTimes, faBars, faCog, faSearch, faCheck, faUserFriends, faGlobe, faUs
 import { useNavigate, useParams } from 'react-router-dom';
 import '../Header.css';
 
-const Header = ({ usersInRoom, onSearchClick }) => { // Thêm onSearchClick vào props
+const Header = ({ usersInRoom, onSearchClick, onQueueClick }) => { // Thêm onSearchClick vào props
     const { roomId } = useParams(); // Lấy roomId từ URL
     const [showPopup, setShowPopup] = useState(false);
     const [showUserList, setShowUserList] = useState(false); // Trạng thái để hiển thị danh sách người dùng
@@ -63,7 +63,9 @@ const Header = ({ usersInRoom, onSearchClick }) => { // Thêm onSearchClick vào
                 <div className="item logo">
                     <img src="https://i.imgur.com/Rp89NPj.png" alt="Rave" />
                 </div>
-                <div className="item"><FontAwesomeIcon icon={faCheck} className="icon" /></div>
+                <div className="item" onClick={onQueueClick}>
+                    <FontAwesomeIcon icon={faCheck} className="icon" />
+                </div>
                 <div className="item"><FontAwesomeIcon icon={faUserFriends} className="icon" /></div>
                 <div className="item"><FontAwesomeIcon icon={faGlobe} className="icon" /></div>
                 <div className="item" onClick={toggleUserList}>

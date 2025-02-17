@@ -9,9 +9,312 @@ import Header from './components/Header';
 import ReactPlayer from 'react-player';
 import { useSearchParams } from 'react-router-dom';
 import axios from 'axios'; // Thêm axios để gọi API
+import VideoQueue from './components/VideoQueue';  // Điều chỉnh đường dẫn tùy theo cấu trúc thư mục của bạn
 const ChatRoom = () => {
     // Lấy roomId từ URL
     const { roomId } = useParams();
+    //
+    const [showSuccessModal, setShowSuccessModal] = useState(false);
+    const [successMessage, setSuccessMessage] = useState('');
+    const [showQueueModal, setShowQueueModal] = useState(false);
+    const [videoQueue, setVideoQueue] = useState([]);
+    const handleQueueClick = () => {
+        setShowQueueModal(prev => !prev); // Toggle modal thay vì chỉ mở
+    };
+    useEffect(() => {
+        // Load queue từ localStorage khi khởi tạo
+        const savedQueue = localStorage.getItem(`videoQueue_${roomId}`);
+        if (savedQueue) {
+            try {
+                const parsedQueue = JSON.parse(savedQueue);
+                setVideoQueue(parsedQueue);
+            } catch (error) {
+                console.error('Error parsing saved queue:', error);
+            }
+        }
+    }, [roomId]);
+    const addToQueue = (video, isYouTube = false) => {
+        
+
+        const currentUser = getUserFromToken();
+
+        // Prepare the new queue item
+        const newQueueItem = {
+            id: isYouTube ? video.id.videoId : video.title,
+            title: isYouTube ? video.snippet.title : video.title,
+            thumbnail: isYouTube ? video.snippet.thumbnails.medium.url : `https://colkidclub-hutech.id.vn${video.thumbnail}`,
+            url: isYouTube ? `https://www.youtube.com/watch?v=${video.id.videoId}`
+                : `https://colkidclub-hutech.id.vn/video/play/${encodeURIComponent(video.title)}`,
+            duration: video.duration,
+            allowUserQueue: true,
+            votes: 1,
+            voters: [{
+                username: currentUser.username,
+                avtUrl: currentUser.avtUrl
+            }]
+        };
+
+        // Nếu không có video đang phát, phát video ngay lập tức
+        if (!currentVideoUrl && isOwner) {
+            setCurrentVideoUrl(newQueueItem.url);
+            setShowVideoList(false);
+            setIsPlaying(true);
+
+            // Broadcast video state
+            if (stompClientRef.current && stompClientRef.current.connected) {
+                const videoState = {
+                    videoUrl: newQueueItem.url,
+                    currentTime: 0,
+                    isPlaying: true,
+                    type: 'VIDEO_UPDATE'
+                };
+                stompClientRef.current.publish({
+                    destination: `/app/chat.videoUpdate/${roomId}`,
+                    body: JSON.stringify(videoState)
+                });
+
+                // Send chat notification
+                const notificationMessage = {
+                    sender: 'Thông Báo',
+                    content: `Chủ phòng đã phát video mới: ${newQueueItem.title}`,
+                    type: 'CHAT'
+                };
+                stompClientRef.current.publish({
+                    destination: `/app/chat.sendMessage/${roomId}`,
+                    body: JSON.stringify(notificationMessage)
+                });
+            }
+            return;
+        }
+
+        // Tạo một bản sao của queue để thao tác
+        let updatedQueue = [...videoQueue];
+
+        // Tìm và xóa vote của user ở các video khác
+        updatedQueue = updatedQueue.map(queueItem => {
+            // Nếu video này có vote của user
+            if (queueItem.voters && queueItem.voters.some(voter => voter.username === currentUser.username)) {
+                // Giảm vote và loại bỏ user khỏi danh sách voters
+                return {
+                    ...queueItem,
+                    votes: Math.max((queueItem.votes || 1) - 1, 0),
+                    voters: queueItem.voters.filter(voter => voter.username !== currentUser.username)
+                };
+            }
+            return queueItem;
+        });
+
+        // Kiểm tra xem video mới đã tồn tại trong queue chưa
+        const existingVideoIndex = updatedQueue.findIndex(
+            queueItem => queueItem.id === newQueueItem.id
+        );
+
+        if (existingVideoIndex !== -1) {
+            // Nếu video đã tồn tại, cập nhật vote
+            const existingVideo = updatedQueue[existingVideoIndex];
+            existingVideo.votes += 1;
+            existingVideo.voters.push({
+                username: currentUser.username,
+                avtUrl: currentUser.avtUrl
+            });
+        } else {
+            // Nếu video chưa tồn tại, thêm mới vào queue
+            updatedQueue.push(newQueueItem);
+        }
+
+        // Sắp xếp lại queue theo số vote
+        updatedQueue.sort((a, b) => (b.votes || 0) - (a.votes || 0));
+
+        // Cập nhật state và localStorage
+        setVideoQueue(updatedQueue);
+        localStorage.setItem(`videoQueue_${roomId}`, JSON.stringify(updatedQueue));
+
+        // Gửi thông báo
+        setSuccessMessage(`Đã thêm "${newQueueItem.title}" vào hàng chờ`);
+        setShowSuccessModal(true);
+        setTimeout(() => {
+            setShowSuccessModal(false);
+        }, 2000);
+
+        // Gửi thông báo vote trong chat
+        if (stompClientRef.current && stompClientRef.current.connected) {
+            const notificationMessage = {
+                sender: 'Thông Báo',
+                content: `${currentUser.username} đã vote cho video "${newQueueItem.title}"`,
+                type: 'CHAT'
+            };
+            stompClientRef.current.publish({
+                destination: `/app/chat.sendMessage/${roomId}`,
+                body: JSON.stringify(notificationMessage)
+            });
+        }
+
+        // Broadcast queue update
+        broadcastQueueUpdate(updatedQueue);
+    };
+
+    // Cập nhật hàm handleVoteVideo
+    const handleVoteVideo = (index) => {
+        const currentUser = getUserFromToken();
+        const updatedQueue = [...videoQueue];
+        const targetVideo = updatedQueue[index];
+
+        // Đảm bảo rằng voters được khởi tạo cho tất cả video trong queue
+        updatedQueue.forEach(video => {
+            if (!video.voters) {
+                video.voters = [];
+            }
+        });
+
+        // Kiểm tra xem user đã vote cho video khác chưa
+        const userPreviousVote = updatedQueue.findIndex(video =>
+            video.voters && video.voters.some(voter => voter.username === currentUser.username)
+        );
+
+        // Nếu user đã vote cho video khác, hủy vote cũ
+        if (userPreviousVote !== -1 && userPreviousVote !== index) {
+            updatedQueue[userPreviousVote].votes = (updatedQueue[userPreviousVote].votes || 1) - 1;
+            updatedQueue[userPreviousVote].voters = updatedQueue[userPreviousVote].voters.filter(
+                voter => voter.username !== currentUser.username
+            );
+        }
+
+        // Đảm bảo rằng video hiện tại có mảng voters
+        if (!targetVideo.voters) {
+            targetVideo.voters = [];
+        }
+
+        // Kiểm tra xem user đã vote cho video này chưa
+        const hasVoted = targetVideo.voters.some(voter => voter.username === currentUser.username);
+
+        if (!hasVoted) {
+            // Thêm vote mới
+            targetVideo.votes = (targetVideo.votes || 0) + 1;
+            targetVideo.voters.push({
+                username: currentUser.username,
+                avtUrl: currentUser.avtUrl
+            });
+
+            // Gửi thông báo trong chat
+            if (stompClientRef.current && stompClientRef.current.connected) {
+                const notificationMessage = {
+                    sender: 'Thông Báo',
+                    content: `${currentUser.username} đã vote cho video "${targetVideo.title}"`,
+                    type: 'CHAT'
+                };
+                stompClientRef.current.publish({
+                    destination: `/app/chat.sendMessage/${roomId}`,
+                    body: JSON.stringify(notificationMessage)
+                });
+            }
+        }
+
+        // Sắp xếp lại queue theo số vote
+        updatedQueue.sort((a, b) => (b.votes || 0) - (a.votes || 0));
+
+        setVideoQueue(updatedQueue);
+        localStorage.setItem(`videoQueue_${roomId}`, JSON.stringify(updatedQueue));
+        broadcastQueueUpdate(updatedQueue);
+    };
+
+    // Hàm gửi cập nhật queue qua WebSocket
+    const broadcastQueueUpdate = (updatedQueue) => {
+        if (stompClientRef.current && stompClientRef.current.connected) {
+            const queueUpdate = {
+                type: 'QUEUE_UPDATE',
+                queue: updatedQueue,
+                roomId: roomId
+            };
+            stompClientRef.current.publish({
+                destination: `/topic/${roomId}`,
+                body: JSON.stringify(queueUpdate)
+            });
+        }
+    };
+
+    // Sửa lại hàm removeFromQueue
+    const removeFromQueue = (index) => {
+        if (!isOwner) {
+            alert("Only the room owner can remove videos from the queue.");
+            return;
+        }
+
+        const updatedQueue = videoQueue.filter((_, i) => i !== index);
+        setVideoQueue(updatedQueue);
+
+        // Lưu vào localStorage
+        localStorage.setItem(`videoQueue_${roomId}`, JSON.stringify(updatedQueue));
+
+        // Broadcast queue update
+        if (stompClientRef.current && stompClientRef.current.connected) {
+            const queueUpdate = {
+                type: 'QUEUE_UPDATE',
+                queue: updatedQueue,
+                roomId: roomId
+            };
+            stompClientRef.current.publish({
+                destination: `/app/chat.queueUpdate/${roomId}`,
+                body: JSON.stringify(queueUpdate)
+            });
+        }
+    };
+
+    // Modify the onEnded handler in ReactPlayer
+    const handleVideoEnd = () => {
+        if (videoQueue.length > 0 && isOwner) {
+            const nextVideo = videoQueue[0];
+            const updatedQueue = videoQueue.slice(1);
+
+            // Update queue
+            setVideoQueue(updatedQueue);
+            localStorage.setItem(`videoQueue_${roomId}`, JSON.stringify(updatedQueue));
+
+            // Play next video immediately
+            setCurrentVideoUrl(nextVideo.url);
+            setIsPlaying(true);
+            setShowVideoList(false);
+
+            // Broadcast updates
+            if (stompClientRef.current && stompClientRef.current.connected) {
+                // Queue update
+                const queueUpdate = {
+                    type: 'QUEUE_UPDATE',
+                    queue: updatedQueue,
+                    roomId: roomId
+                };
+                stompClientRef.current.publish({
+                    destination: `/app/chat.queueUpdate/${roomId}`,
+                    body: JSON.stringify(queueUpdate)
+                });
+
+                // Video state update
+                const videoState = {
+                    videoUrl: nextVideo.url,
+                    currentTime: 0,
+                    isPlaying: true,
+                    type: 'VIDEO_UPDATE'
+                };
+                stompClientRef.current.publish({
+                    destination: `/app/chat.videoUpdate/${roomId}`,
+                    body: JSON.stringify(videoState)
+                });
+
+                // Notification message
+                const notificationMessage = {
+                    sender: 'Thông Báo',
+                    content: `Đang phát video tiếp theo: ${nextVideo.title}`,
+                    type: 'CHAT'
+                };
+                stompClientRef.current.publish({
+                    destination: `/app/chat.sendMessage/${roomId}`,
+                    body: JSON.stringify(notificationMessage)
+                });
+            }
+        } else {
+            // No videos in queue, show video list
+            setShowVideoList(true);
+        }
+    };
 
     // Các trạng thái quản lý video
     const [isPlaying, setIsPlaying] = useState(true); // Trạng thái phát/tạm dừng video
@@ -39,7 +342,7 @@ const ChatRoom = () => {
     const playerRef = useRef(null); // Ref cho ReactPlayer
     const stompClientRef = useRef(null); // Ref cho stompClient
     const ownerUsernameRef = useRef(''); // Ref cho ownerUsername
-    const API_KEY = 'AIzaSyDRBV8kBUTJTDjI_2xj_vRdKIKS5H35CJg';
+    const API_KEY = 'AIzaSyCi1QkAQ8IXkQKme9yl34BB0WPCcSg8_MQ';
     const [isWebSocketReady, setIsWebSocketReady] = useState(false);
     // Refs cho currentVideoUrl và isPlaying
     const currentVideoUrlRef = useRef(currentVideoUrl);
@@ -82,32 +385,41 @@ const ChatRoom = () => {
         }
 
         const videoUrl = `https://www.youtube.com/watch?v=${videoId}`;
-        setCurrentVideoUrl(videoUrl);
-        setShowVideoList(false);
-        setYoutubeResults([]);
-        setIsPlaying(true);
 
-        // Gửi thông báo video mới cho mọi người
-        const videoState = {
-            videoUrl: videoUrl,
-            currentTime: 0,
-            isPlaying: true,
-            type: 'VIDEO_UPDATE'
-        };
+        // If no video is currently playing, play immediately
+        if (!currentVideoUrl) {
+            setCurrentVideoUrl(videoUrl);
+            setShowVideoList(false);
+            setIsPlaying(true);
+            setYoutubeResults([]);
+        } else {
+            // Add to queue (this will handle duplicate logic)
+            const youtubeVideo = youtubeResults.find(v => v.id.videoId === videoId);
+            if (youtubeVideo) {
+                addToQueue(youtubeVideo, true);
+            }
+            return;
+        }
 
+        // Broadcast video state
         if (stompClientRef.current && stompClientRef.current.connected) {
+            const videoState = {
+                videoUrl: videoUrl,
+                currentTime: 0,
+                isPlaying: true,
+                type: 'VIDEO_UPDATE'
+            };
             stompClientRef.current.publish({
                 destination: `/app/chat.videoUpdate/${roomId}`,
                 body: JSON.stringify(videoState)
             });
 
-            // Gửi thông báo trong chat
+            // Send chat notification
             const notificationMessage = {
                 sender: 'Thông Báo',
                 content: `Chủ phòng đã phát video YouTube: ${videoTitle}`,
                 type: 'CHAT'
             };
-
             stompClientRef.current.publish({
                 destination: `/app/chat.sendMessage/${roomId}`,
                 body: JSON.stringify(notificationMessage)
@@ -348,23 +660,51 @@ const ChatRoom = () => {
                                 setUsersInRoom(prevUsers => [...prevUsers, receivedMessage.sender]);
                                 setMessages(prevMessages => [...prevMessages, receivedMessage]);
 
-                                // Nếu là chủ phòng, gửi ngay trạng thái video hiện tại
-                                if (currentUser.username === ownerUsernameRef.current &&
-                                    playerRef.current &&
-                                    currentVideoUrlRef.current) {
-                                    const videoState = {
-                                        videoUrl: currentVideoUrlRef.current,
-                                        currentTime: playerRef.current.getCurrentTime(),
-                                        isPlaying: isPlayingRef.current,
-                                        type: 'VIDEO_UPDATE'
-                                    };
+                                // Nếu là chủ phòng, gửi ngay trạng thái hiện tại
+                                if (currentUser.username === ownerUsernameRef.current) {
+                                    console.log('Owner sending current state to new user');
 
-                                    // Đợi một chút để đảm bảo người dùng mới đã sẵn sàng nhận trạng thái
+                                    // Lấy queue từ localStorage của chủ phòng
+                                    const savedQueue = localStorage.getItem(`videoQueue_${roomId}`);
+                                    let queueToSend = [];
+
+                                    if (savedQueue) {
+                                        try {
+                                            queueToSend = JSON.parse(savedQueue);
+                                            console.log('Sending saved queue to new user:', queueToSend);
+                                        } catch (error) {
+                                            console.error('Error parsing saved queue:', error);
+                                        }
+                                    }
+
                                     setTimeout(() => {
-                                        stompClientRef.current.publish({
-                                            destination: `/app/chat.videoUpdate/${roomId}`,
-                                            body: JSON.stringify(videoState)
-                                        });
+                                        // Gửi queue hiện tại cho người dùng mới
+                                        if (queueToSend.length > 0 || videoQueue.length > 0) {
+                                            const queueUpdate = {
+                                                type: 'QUEUE_UPDATE',
+                                                queue: queueToSend.length > 0 ? queueToSend : videoQueue,
+                                                roomId: roomId
+                                            };
+                                            console.log('Sending queue update to new user:', queueUpdate);
+                                            stompClientRef.current.publish({
+                                                destination: `/topic/${roomId}`,
+                                                body: JSON.stringify(queueUpdate)
+                                            });
+                                        }
+
+                                        // Gửi trạng thái video nếu có
+                                        if (playerRef.current && currentVideoUrlRef.current) {
+                                            const videoState = {
+                                                videoUrl: currentVideoUrlRef.current,
+                                                currentTime: playerRef.current.getCurrentTime(),
+                                                isPlaying: isPlayingRef.current,
+                                                type: 'VIDEO_UPDATE'
+                                            };
+                                            stompClientRef.current.publish({
+                                                destination: `/topic/${roomId}`,
+                                                body: JSON.stringify(videoState)
+                                            });
+                                        }
                                     }, 1000);
                                 }
                                 break;
@@ -383,6 +723,18 @@ const ChatRoom = () => {
                                 break;
                             case 'VIDEO_PROGRESS':
                                 handleVideoProgress(receivedMessage);
+                                break;
+                            case 'QUEUE_UPDATE':
+                                console.log('Received QUEUE_UPDATE:', receivedMessage);
+                                console.log('Current roomId:', roomId);
+                                console.log('Message roomId:', receivedMessage.roomId);
+                                if (receivedMessage.roomId === roomId) {
+                                    console.log('Updating queue with:', receivedMessage.queue);
+                                    setVideoQueue(receivedMessage.queue);
+                                    localStorage.setItem(`videoQueue_${roomId}`, JSON.stringify(receivedMessage.queue));
+                                } else {
+                                    console.log('RoomId mismatch, not updating queue');
+                                }
                                 break;
                             default:
                                 // Xử lý các thông điệp chat thông thường
@@ -567,31 +919,36 @@ const ChatRoom = () => {
         }
 
         const videoUrl = `https://colkidclub-hutech.id.vn/video/play/${encodeURIComponent(video.title)}`;
-        console.log(`Playing video: ${videoUrl}`);
-        setCurrentVideoUrl(videoUrl);
-        setShowVideoList(false);
-
-        // Loại bỏ đuôi .mp4 khỏi tiêu đề video
         const videoTitleWithoutExtension = video.title.replace('.mp4', '');
 
-        // Nếu là chủ phòng, gửi trạng thái video đến tất cả người dùng
+        // If no video is currently playing, play immediately
+        if (!currentVideoUrl) {
+            setCurrentVideoUrl(videoUrl);
+            setShowVideoList(false);
+            setIsPlaying(true);
+        } else {
+            // Add to queue (this will handle duplicate logic)
+            addToQueue(video);
+            return;
+        }
+
+        // Broadcast video state if owner
         if (isOwner) {
             const videoState = {
                 videoUrl: videoUrl,
-                currentTime: 0, // Bắt đầu từ đầu
-                isPlaying: true, // Bắt đầu phát
+                currentTime: 0,
+                isPlaying: true,
                 type: 'VIDEO_UPDATE'
             };
-            console.log('Sending VIDEO_UPDATE:', videoState);
             stompClientRef.current.publish({
                 destination: `/app/chat.videoUpdate/${roomId}`,
                 body: JSON.stringify(videoState)
             });
 
-            // Gửi thông báo phát video mới trong khung chat
+            // Send chat notification
             const notificationMessage = {
-                sender: 'Thông Báo', // Bạn có thể chọn một tên người gửi như 'System'
-                content: `Chủ phòng đã phát video mới: ${videoTitleWithoutExtension}`, // Sử dụng tiêu đề không có đuôi .mp4
+                sender: 'Thông Báo',
+                content: `Chủ phòng đã phát video mới: ${videoTitleWithoutExtension}`,
                 type: 'CHAT'
             };
             stompClientRef.current.publish({
@@ -664,7 +1021,11 @@ const ChatRoom = () => {
     // Tr
     return (
         <div className="container">
-            <Header usersInRoom={usersInRoom} onSearchClick={handleShowVideoList} />
+            <Header
+                usersInRoom={usersInRoom}
+                onSearchClick={handleShowVideoList}
+                onQueueClick={handleQueueClick}  // Thêm dòng này
+            />
 
             <div className="main-content">
                 <div className={`video-section ${showVideoList ? 'with-list' : ''}`}>
@@ -695,28 +1056,27 @@ const ChatRoom = () => {
                             url={currentVideoUrl}
                             className={`react-player ${isOwner ? 'owner' : ''}`}
                             playing={isPlaying}
-                    
                             width="100%"
                             height="100%"
                             onPause={handlePause}
                             onPlay={handlePlay}
                             onProgress={handleProgress}
-                            onEnded={() => setShowVideoList(true)}
+                            onEnded={handleVideoEnd}  // Updated to use new handler
                             config={{
                                 youtube: {
                                     playerVars: {
                                         controls: isOwner ? 1 : 0,
-                                        disablekb: 1, // Vô hiệu hóa keyboard controls cho tất cả
+                                        disablekb: 1,
                                         modestbranding: 1,
                                         playsinline: 1,
                                         rel: 0,
                                         showinfo: 0,
                                         iv_load_policy: 3,
-                                        fs: isOwner ? 1 : 0, // Vô hiệu hóa chế độ toàn màn hình cho non-owner
+                                        fs: isOwner ? 1 : 0,
                                     }
                                 }
                             }}
-                            style={{ pointerEvents: isOwner ? 'auto' : 'none' }} // Vô hiệu hóa tất cả tương tác chuột
+                            style={{ pointerEvents: isOwner ? 'auto' : 'none' }}
                         />
                     )}
 
@@ -728,16 +1088,9 @@ const ChatRoom = () => {
                                     {youtubeResults.map((video) => (
                                         <div
                                             key={video.id.videoId}
-                                            className={`video-card ${!isOwner ? 'disabled-card' : ''}`}
-                                            onClick={() => playYoutubeVideo(
-                                                video.id.videoId,
-                                                video.snippet.title
-                                            )}
-                                            style={{
-                                                cursor: isOwner ? 'pointer' : 'not-allowed',
-                                                opacity: isOwner ? 1 : 0.6
-                                            }}
-                                            title={isOwner ? 'Click to play video' : 'Bạn không có quyền chọn video'}
+                                            className="video-card"
+                                            onClick={() => addToQueue(video, true)}
+                                            style={{ cursor: 'pointer' }}
                                         >
                                             <img
                                                 src={video.snippet.thumbnails.default.url}
@@ -746,7 +1099,7 @@ const ChatRoom = () => {
                                             />
                                             <div className="video-info">
                                                 <p className="video-title">{video.snippet.title}</p>
-                                                <span className="video-duration">YouTube Video</span>
+                                                <span className="video-duration">Add to Queue</span>
                                             </div>
                                         </div>
                                     ))}
@@ -775,7 +1128,20 @@ const ChatRoom = () => {
                         </div>
                     )}
                 </div>
-
+                {showSuccessModal && (
+                    <div className="success-modal">
+                        <p>{successMessage}</p>
+                    </div>
+                )}
+                <VideoQueue
+                    isOpen={showQueueModal}
+                    onClose={() => setShowQueueModal(false)}
+                    videoQueue={videoQueue}
+                    onRemoveFromQueue={removeFromQueue}
+                    onVote={handleVoteVideo}
+                    isOwner={isOwner}
+                    currentUser={currentUser}  // Thêm dòng này
+                />
                 <div className="chat-section">
                     <div className="chat-messages" id="chatMessages" ref={chatMessagesRef}>
                         <ul>
