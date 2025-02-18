@@ -45,6 +45,7 @@ const ChatRoom = () => {
     const [showQueueModal, setShowQueueModal] = useState(false);
     const [videoQueue, setVideoQueue] = useState([]);
     const [selectedReplyMessage, setSelectedReplyMessage] = useState(null);
+
     const handleQueueClick = () => {
         setShowQueueModal(prev => !prev); // Toggle modal thay vì chỉ mở
     };
@@ -64,16 +65,16 @@ const ChatRoom = () => {
         try {
             // Danh sách các từ khóa âm nhạc phổ biến
             const musicKeywords = [
-                'nhạc trẻ remix 2024',
-                'nhạc trẻ hay nhất',
+              
+             
                 'nhạc lofi chill',
-                'nhạc pop việt',
-                'top hits vietnam',
+                'nhạc pop usuk',
+                
                 'vpop hay nhất',
                 'nhạc trẻ hot',
                 'edm remix việt',
                 'nhạc indie việt',
-                'nhạc trữ tình'
+               
             ];
 
             // Chọn ngẫu nhiên một từ khóa
@@ -1018,57 +1019,30 @@ const ChatRoom = () => {
                 id: Date.now(),
                 sender: currentUser.username,
                 avtUrl: currentUser.avtUrl,
-                content: selectedReplyMessage
-                    ? `[Reply to ${selectedReplyMessage.sender}: ${selectedReplyMessage.content}]\n${messageContent.trim()}`
-                    : messageContent.trim(),
+                content: messageContent.trim(),
                 image: null,
                 type: "CHAT",
                 replyTo: selectedReplyMessage ? {
-                    messageId: selectedReplyMessage.id,
+                    id: selectedReplyMessage.id,
                     sender: selectedReplyMessage.sender,
                     content: selectedReplyMessage.content
                 } : null
             };
 
-            if (selectedImage) {
-                new Compressor(selectedImage, {
-                    quality: 0.3,
-                    maxWidth: 800,
-                    maxHeight: 800,
-                    mimeType: 'image/jpeg',
-                    success(result) {
-                        const reader = new FileReader();
-                        reader.onloadend = () => {
-                            const base64Image = reader.result.split(',')[1];
-                            chatMessage.image = base64Image;
-                            console.log('Sending CHAT message with image:', chatMessage);
-                            stompClientRef.current.publish({
-                                destination: `/app/chat.sendMessage/${roomId}`,
-                                body: JSON.stringify(chatMessage)
-                            });
-                            setMessageContent('');
-                            setSelectedImage(null);
-                            setSelectedReplyMessage(null);
-                        };
-                        reader.readAsDataURL(result);
-                    },
-                    error(err) {
-                        console.error('Compression error:', err);
-                    },
-                });
-            } else {
-                console.log('Sending CHAT message:', chatMessage);
-                stompClientRef.current.publish({
-                    destination: `/app/chat.sendMessage/${roomId}`,
-                    body: JSON.stringify(chatMessage)
-                });
-                setMessageContent('');
-                setSelectedReplyMessage(null);
-            }
+            console.log("Sending Message:", chatMessage);
+
+            stompClientRef.current.publish({
+                destination: `/app/chat.sendMessage/${roomId}`,
+                body: JSON.stringify(chatMessage)
+            });
+
+            setMessageContent('');
+            setSelectedReplyMessage(null);
         } else {
             console.error("WebSocket not connected or message is empty.");
         }
     };
+
 
     // Hàm xử lý upload ảnh
     const handleImageUpload = (e) => {
@@ -1313,11 +1287,13 @@ const ChatRoom = () => {
 
                     <div className="chat-messages" id="chatMessages" ref={chatMessagesRef}>
                         <ul>
-                            
                             {messages.map((message, index) => {
                                 const isSender = message.sender === currentUser.username;
-                                const isSameSenderAsPrevious = index > 0 && message.sender === messages[index - 1].sender;
+                                const isSameSenderAsPrevious = index > 0 && message.sender === messages[index - 1]?.sender;
                                 const avtUrl = message.avtUrl || 'https://i.imgur.com/WxNkK7J.png';
+
+                                // Kiểm tra nếu tin nhắn có reply
+                                const hasReply = message.replyTo && message.replyTo.content;
 
                                 // Xử lý tin nhắn hệ thống (JOIN/LEAVE)
                                 if (message.type === 'JOIN' || message.type === 'LEAVE') {
@@ -1335,50 +1311,40 @@ const ChatRoom = () => {
                                     );
                                 }
 
-                                // Render tin nhắn reply riêng biệt
-                                const renderReplyMessage = message.replyTo && (
-                                    <li
-                                        key={`reply-${index}`}
-                                        className={`message-item reply-message ${isSender ? "sent" : "received"}`}
-                                    >
-                                        <div className={`message-container ${isSender ? "sent-container" : "received-container"}`}>
-                                            <div className="reply-container">
-                                                <div className="reply-preview">
-                                                    <span className="reply-icon">←</span>
-                                                    <span className="reply-sender">{message.replyTo.sender}</span>
-                                                    <span className="reply-content">{message.replyTo.content}</span>
-                                                </div>
+                                return (
+                                    <li key={index} className={`message-item ${isSender ? "sent" : "received"}`}>
+
+                                        {/* Nếu tin nhắn này không phải của người gửi, hiển thị Avatar */}
+                                        {!isSender && !isSameSenderAsPrevious && (
+                                            <div className="message-avatar">
+                                                <img src={avtUrl} alt="Avatar" />
                                             </div>
-                                        </div>
-                                    </li>
-                                );
+                                        )}
 
-                                // Render tin nhắn chính
-                                return [
-                                    message.replyTo && renderReplyMessage,
-                                    <li
-                                        key={index}
-                                        className={`message-item ${isSender ? "sent" : "received"}`}
-                                    >
-                                        <div className={`message-container ${isSender ? "sent-container" : "received-container"}`}>
-                                            {/* Header tin nhắn cho người nhận */}
-                                            {!isSender && !isSameSenderAsPrevious && (
-                                                <div className="message-header">
-                                                    <div className="message-avatar">
-                                                        <img src={avtUrl} alt="Avatar" />
-                                                    </div>
-                                                    <strong className="message-sender">{message.sender}</strong>
-                                                </div>
-                                            )}
-
-                                            {/* Nội dung tin nhắn */}
-                                            <div className="message-content">
-                                                {/* Nội dung text */}
-                                                {message.content && (
-                                                    <div className="message-text">{message.content}</div>
+                                        {/* Nếu tin nhắn này là reply, hiển thị tin nhắn được reply bên dưới avatar */}
+                                        {hasReply && (
+                                            <div className={`reply-container ${isSender ? "sent-reply" : "received-reply"}`}>
+                                                {/* Nếu là người gửi, hiển thị "You replied to [username]" */}
+                                                {isSender ? (
+                                                    <div className="reply-header right-align">You replied to {message.replyTo.sender}</div>
+                                                ) : (
+                                                    <div className="reply-header left-align">{message.sender} replied to you</div>
                                                 )}
 
-                                                {/* Nội dung ảnh nếu có */}
+                                                {/* Nội dung tin nhắn được reply (chỉ hiển thị nội dung, không có tên người gửi) */}
+                                                <div className="reply-message">{message.replyTo.content}</div>
+                                            </div>
+                                        )}
+
+                                        {/* Hiển thị tên người gửi CHỈ KHI không phải tin nhắn reply */}
+                                        {!isSender && !isSameSenderAsPrevious && !hasReply && (
+                                            <strong className="message-sender">{message.sender}</strong>
+                                        )}
+
+                                        {/* Nội dung tin nhắn chính */}
+                                        <div className={`message-container ${isSender ? "sent-container" : "received-container"}`}>
+                                            <div className="message-content">
+                                                {message.content && <div className="message-text">{message.content}</div>}
                                                 {message.image && (
                                                     <div className="message-image">
                                                         <img
@@ -1399,15 +1365,17 @@ const ChatRoom = () => {
                                                 inputRef.current.focus();
                                             }}
                                         >
-                                            <img
-                                                src="https://i.imgur.com/pI0lxt8.png"  // Hoặc icon reply phù hợp
-                                                alt="Reply"
-                                            />
+                                            <img src="https://i.imgur.com/pI0lxt8.png" alt="Reply" />
                                         </div>
                                     </li>
-                                ].filter(Boolean); // Loại bỏ các phần tử null
+                                );
                             })}
                         </ul>
+
+
+
+
+
                     </div>
 
                     {/* Preview reply */}
