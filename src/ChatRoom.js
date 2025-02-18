@@ -44,6 +44,7 @@ const ChatRoom = () => {
     const [successMessage, setSuccessMessage] = useState('');
     const [showQueueModal, setShowQueueModal] = useState(false);
     const [videoQueue, setVideoQueue] = useState([]);
+    const [selectedReplyMessage, setSelectedReplyMessage] = useState(null);
     const handleQueueClick = () => {
         setShowQueueModal(prev => !prev); // Toggle modal thay vì chỉ mở
     };
@@ -1006,16 +1007,27 @@ const ChatRoom = () => {
             }
         }
     };
-
+    const handleReplyMessage = (message) => {
+        setSelectedReplyMessage(message);
+        inputRef.current.focus();
+    };
     // Hàm gửi tin nhắn
     const sendMessage = () => {
         if (stompClientRef.current && stompClientRef.current.connected && (messageContent.trim() || selectedImage)) {
             const chatMessage = {
+                id: Date.now(),
                 sender: currentUser.username,
                 avtUrl: currentUser.avtUrl,
-                content: messageContent.trim(),
+                content: selectedReplyMessage
+                    ? `[Reply to ${selectedReplyMessage.sender}: ${selectedReplyMessage.content}]\n${messageContent.trim()}`
+                    : messageContent.trim(),
                 image: null,
-                type: "CHAT"
+                type: "CHAT",
+                replyTo: selectedReplyMessage ? {
+                    messageId: selectedReplyMessage.id,
+                    sender: selectedReplyMessage.sender,
+                    content: selectedReplyMessage.content
+                } : null
             };
 
             if (selectedImage) {
@@ -1036,6 +1048,7 @@ const ChatRoom = () => {
                             });
                             setMessageContent('');
                             setSelectedImage(null);
+                            setSelectedReplyMessage(null);
                         };
                         reader.readAsDataURL(result);
                     },
@@ -1050,6 +1063,7 @@ const ChatRoom = () => {
                     body: JSON.stringify(chatMessage)
                 });
                 setMessageContent('');
+                setSelectedReplyMessage(null);
             }
         } else {
             console.error("WebSocket not connected or message is empty.");
@@ -1296,13 +1310,16 @@ const ChatRoom = () => {
                     currentUser={currentUser}  // Thêm dòng này
                 />
                 <div className="chat-section">
+
                     <div className="chat-messages" id="chatMessages" ref={chatMessagesRef}>
                         <ul>
+                            
                             {messages.map((message, index) => {
                                 const isSender = message.sender === currentUser.username;
                                 const isSameSenderAsPrevious = index > 0 && message.sender === messages[index - 1].sender;
                                 const avtUrl = message.avtUrl || 'https://i.imgur.com/WxNkK7J.png';
 
+                                // Xử lý tin nhắn hệ thống (JOIN/LEAVE)
                                 if (message.type === 'JOIN' || message.type === 'LEAVE') {
                                     return (
                                         <li key={index} className="message-item system-notification">
@@ -1318,9 +1335,33 @@ const ChatRoom = () => {
                                     );
                                 }
 
-                                return (
-                                    <li key={index} className={isSender ? "message-item sent" : "message-item received"}>
-                                        <div className={isSender ? "message-container sent-container" : "message-container received-container"}>
+                                // Render tin nhắn reply riêng biệt
+                                const renderReplyMessage = message.replyTo && (
+                                    <li
+                                        key={`reply-${index}`}
+                                        className={`message-item reply-message ${isSender ? "sent" : "received"}`}
+                                    >
+                                        <div className={`message-container ${isSender ? "sent-container" : "received-container"}`}>
+                                            <div className="reply-container">
+                                                <div className="reply-preview">
+                                                    <span className="reply-icon">←</span>
+                                                    <span className="reply-sender">{message.replyTo.sender}</span>
+                                                    <span className="reply-content">{message.replyTo.content}</span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </li>
+                                );
+
+                                // Render tin nhắn chính
+                                return [
+                                    message.replyTo && renderReplyMessage,
+                                    <li
+                                        key={index}
+                                        className={`message-item ${isSender ? "sent" : "received"}`}
+                                    >
+                                        <div className={`message-container ${isSender ? "sent-container" : "received-container"}`}>
+                                            {/* Header tin nhắn cho người nhận */}
                                             {!isSender && !isSameSenderAsPrevious && (
                                                 <div className="message-header">
                                                     <div className="message-avatar">
@@ -1329,26 +1370,80 @@ const ChatRoom = () => {
                                                     <strong className="message-sender">{message.sender}</strong>
                                                 </div>
                                             )}
+
+                                            {/* Nội dung tin nhắn */}
                                             <div className="message-content">
-                                                {message.content && <div className="message-text">{message.content}</div>}
+                                                {/* Nội dung text */}
+                                                {message.content && (
+                                                    <div className="message-text">{message.content}</div>
+                                                )}
+
+                                                {/* Nội dung ảnh nếu có */}
                                                 {message.image && (
                                                     <div className="message-image">
-                                                        <img src={`data:image/png;base64,${message.image}`} alt="Sent" style={{ maxWidth: '200px', marginTop: '10px' }} />
+                                                        <img
+                                                            src={`data:image/png;base64,${message.image}`}
+                                                            alt="Sent"
+                                                            style={{ maxWidth: '200px', marginTop: '10px' }}
+                                                        />
                                                     </div>
                                                 )}
                                             </div>
                                         </div>
+
+                                        {/* Nút reply */}
+                                        <div
+                                            className="message-hover-reply"
+                                            onClick={() => {
+                                                setSelectedReplyMessage(message);
+                                                inputRef.current.focus();
+                                            }}
+                                        >
+                                            <img
+                                                src="https://i.imgur.com/pI0lxt8.png"  // Hoặc icon reply phù hợp
+                                                alt="Reply"
+                                            />
+                                        </div>
                                     </li>
-                                );
+                                ].filter(Boolean); // Loại bỏ các phần tử null
                             })}
                         </ul>
                     </div>
 
+                    {/* Preview reply */}
+                    {selectedReplyMessage && (
+                        <div className="reply-preview-container">
+                            <div className="reply-preview">
+                                <div className="reply-header">
+                                    <span>Replying to {selectedReplyMessage.sender}</span>
+                                    <button
+                                        onClick={() => setSelectedReplyMessage(null)}
+                                        className="close-reply-btn"
+                                    >
+                                        ×
+                                    </button>
+                                </div>
+                                <p className="reply-content">
+                                    {selectedReplyMessage.content}
+                                </p>
+                            </div>
+                        </div>
+                    )}
+
                     {/* Preview ảnh khi chọn */}
                     {selectedImage && (
                         <div className="image-preview-container">
-                            <img src={URL.createObjectURL(selectedImage)} alt="Preview" style={{ maxWidth: '200px', marginBottom: '10px' }} />
-                            <button onClick={() => setSelectedImage(null)} style={{ marginLeft: '10px' }}>Remove</button>
+                            <img
+                                src={URL.createObjectURL(selectedImage)}
+                                alt="Preview"
+                                style={{ maxWidth: '200px', marginBottom: '10px' }}
+                            />
+                            <button
+                                onClick={() => setSelectedImage(null)}
+                                style={{ marginLeft: '10px' }}
+                            >
+                                Remove
+                            </button>
                         </div>
                     )}
 
@@ -1370,7 +1465,11 @@ const ChatRoom = () => {
                         />
 
                         <label htmlFor="imageUpload" style={{ cursor: 'pointer' }}>
-                            <img src="https://i.imgur.com/CqCdOHG.png" alt="Upload Icon" style={{ width: '30px', height: '30px', marginLeft: '10px' }} />
+                            <img
+                                src="https://i.imgur.com/CqCdOHG.png"
+                                alt="Upload Icon"
+                                style={{ width: '30px', height: '30px', marginLeft: '10px' }}
+                            />
                         </label>
                         <input
                             id="imageUpload"

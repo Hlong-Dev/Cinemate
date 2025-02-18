@@ -6,6 +6,8 @@
     background-color: #1a1a1a;
     padding: 10px;
     overflow: hidden; /* Prevent the entire chat section from scrolling */
+    height: 87vh; /* Hoặc đặt theo ý muốn */
+    max-height: 87vh;
 }
 
 /* Messages section where the chat messages will scroll */
@@ -452,5 +454,73 @@
         opacity: 0;
     }
 }
+.message-item {
+    position: relative;
+}
+
+.message-hover-reply {
+    position: absolute;
+    right: 10px;
+    top: 50%;
+    transform: translateY(-50%);
+    opacity: 0;
+    transition: opacity 0.2s ease;
+    cursor: pointer;
+}
+
+.message-item:hover .message-hover-reply {
+    opacity: 1;
+}
+
+.message-hover-reply img {
+    width: 20px;
+    height: 20px;
+}
+.message-item.sent .message-hover-reply {
+    left: 10px;
+    right: auto;
+}
+
+.message-item .message-hover-reply {
+    position: absolute;
+    right: 10px;
+    top: 50%;
+    transform: translateY(-50%);
+    opacity: 0;
+    transition: opacity 0.2s ease;
+    cursor: pointer;
+    z-index: 10;
+}
+
+.message-item:hover .message-hover-reply {
+    opacity: 1;
+}
+
+.message-item .message-hover-reply img {
+    width: 20px;
+    height: 20px;
+}
+.reply-preview-container {
+    max-height: 40px; /* Giới hạn chiều cao */
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+    display: flex;
+    align-items: center;
+    background: #f1f1f1;
+    padding: 5px;
+    border-radius: 5px;
+    font-size: 14px;
+    color: #555;
+    margin-bottom: 5px;
+}
+
+.reply-content {
+    flex: 1;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+}
+
 
 
