@@ -16,7 +16,6 @@ const Home = () => {
     const toggleSidebar = () => {
         setIsSidebarOpen(!isSidebarOpen);
     };
-
     const createRoomWithVideo = async (videoId, videoTitle) => {
         try {
             const token = localStorage.getItem('token');
@@ -30,6 +29,24 @@ const Home = () => {
 
             if (response.ok) {
                 const newRoom = await response.json();
+
+                // Update video info cho phòng mới
+                const updateVideoResponse = await fetch(`https://colkidclub-hutech.id.vn/api/rooms/${newRoom.id}/update-video`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    },
+                    body: JSON.stringify({
+                        currentVideoUrl: `https://www.youtube.com/watch?v=${videoId}`,
+                        currentVideoTitle: videoTitle
+                    })
+                });
+
+                if (!updateVideoResponse.ok) {
+                    console.error("Failed to update video info");
+                }
+
                 // Chuyển hướng đến phòng mới với thông tin video trong URL params
                 navigate(`/room/${newRoom.id}?videoId=${videoId}&autoplay=true`);
             } else {
@@ -65,7 +82,7 @@ const Home = () => {
     const [youtubeResults, setYoutubeResults] = useState([]);
     const [isLoading, setIsLoading] = useState(false);
     const [imagesLoaded, setImagesLoaded] = useState(0);
-    const API_KEY = 'AIzaSyCi1QkAQ8IXkQKme9yl34BB0WPCcSg8_MQ';
+    const API_KEY = 'AIzaSyD9hNv29hep7MhOqBdpeh21HFBBfSxCTXY';
 
     // Thêm function search YouTube
     const searchYoutubeVideos = async (term) => {

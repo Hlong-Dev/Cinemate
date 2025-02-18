@@ -299,17 +299,26 @@ const ChatRoom = () => {
         if (!isOwner) return;
 
         try {
-            await fetch(`https://colkidclub-hutech.id.vn/api/rooms/${roomId}/update-video`, {
+            const response = await fetch(`https://colkidclub-hutech.id.vn/api/rooms/${roomId}/update-video`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
+                    'Accept': 'application/json'
                 },
                 credentials: 'include',
+                mode: 'cors', // Thêm mode cors
                 body: JSON.stringify({
                     currentVideoUrl: videoUrl,
                     currentVideoTitle: videoTitle
                 })
             });
+
+            if (!response.ok) {
+                const errorText = await response.text();
+                throw new Error(`HTTP error! status: ${response.status}, message: ${errorText}`);
+            }
+
+            console.log('Video info updated successfully:', { videoUrl, videoTitle });
         } catch (error) {
             console.error('Error updating room video info:', error);
         }
