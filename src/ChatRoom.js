@@ -61,35 +61,77 @@ const ChatRoom = () => {
     }, [roomId]);
     const fetchTrendingMusicVideos = async () => {
         try {
-            // Fetch music category ID first
-            const categoryResponse = await axios.get(
-                `https://www.googleapis.com/youtube/v3/videoCategories?part=snippet&regionCode=VN&key=${API_KEY}`
-            );
+            // Danh sách các từ khóa âm nhạc phổ biến
+            const musicKeywords = [
+                'nhạc trẻ remix 2024',
+                'nhạc trẻ hay nhất',
+                'nhạc lofi chill',
+                'nhạc pop việt',
+                'top hits vietnam',
+                'vpop hay nhất',
+                'nhạc trẻ hot',
+                'edm remix việt',
+                'nhạc indie việt',
+                'nhạc trữ tình'
+            ];
 
-            const musicCategoryId = categoryResponse.data.items.find(
-                category => category.snippet.title === "Music"
-            )?.id || "10"; // 10 is the default music category ID
+            // Chọn ngẫu nhiên một từ khóa
+            const randomKeyword = musicKeywords[Math.floor(Math.random() * musicKeywords.length)];
 
-            // Fetch trending music videos
+            // Fetch video sử dụng search endpoint với từ khóa ngẫu nhiên
             const response = await axios.get(
-                `https://www.googleapis.com/youtube/v3/videos?part=snippet,contentDetails&chart=mostPopular&videoCategoryId=${musicCategoryId}&regionCode=VN&maxResults=15&key=${API_KEY}`
+                `https://www.googleapis.com/youtube/v3/search`, {
+                params: {
+                    part: 'snippet',
+                    q: randomKeyword,
+                    type: 'video',
+                    videoCategoryId: '10', // Music category
+                    maxResults: 15,
+                    regionCode: 'VN',
+                    videoDuration: 'medium', // Chỉ lấy video có độ dài trung bình
+                    order: 'viewCount', // Sắp xếp theo lượt xem
+                    key: API_KEY
+                }
+            }
             );
 
-            // Transform the response into queue items
-            const trendingVideos = response.data.items.map(video => ({
-                id: video.id,
-                title: video.snippet.title,
-                thumbnail: video.snippet.thumbnails.medium.url,
-                url: `https://www.youtube.com/watch?v=${video.id}`,
-                duration: video.contentDetails.duration,
-                votes: 0,
-                voters: [],
-                isTrending: true // Flag to identify trending videos
-            }));
+            // Fetch thêm chi tiết video để lấy duration
+            const videoIds = response.data.items.map(item => item.id.videoId).join(',');
+            const videoDetailsResponse = await axios.get(
+                `https://www.googleapis.com/youtube/v3/videos`, {
+                params: {
+                    part: 'contentDetails,statistics',
+                    id: videoIds,
+                    key: API_KEY
+                }
+            }
+            );
 
-            return trendingVideos;
+            // Kết hợp thông tin từ cả hai API calls
+            const trendingVideos = response.data.items.map(video => {
+                const videoDetails = videoDetailsResponse.data.items.find(
+                    detail => detail.id === video.id.videoId
+                );
+
+                return {
+                    id: video.id.videoId,
+                    title: video.snippet.title,
+                    thumbnail: video.snippet.thumbnails.medium.url,
+                    url: `https://www.youtube.com/watch?v=${video.id.videoId}`,
+                    duration: videoDetails ? videoDetails.contentDetails.duration : 'Unknown',
+                    viewCount: videoDetails ? parseInt(videoDetails.statistics.viewCount) : 0,
+                    votes: 0,
+                    voters: [],
+                    isTrending: true,
+                    publishedAt: video.snippet.publishedAt
+                };
+            });
+
+            // Sắp xếp theo lượt xem
+            return trendingVideos.sort((a, b) => b.viewCount - a.viewCount);
+
         } catch (error) {
-            console.error('Error fetching trending music videos:', error);
+            console.error('Error fetching music videos:', error);
             return [];
         }
     };
@@ -253,7 +295,25 @@ const ChatRoom = () => {
         // Broadcast queue update
         broadcastQueueUpdate(updatedQueue);
     };
+    const updateRoomVideoInfo = async (videoUrl, videoTitle) => {
+        if (!isOwner) return;
 
+        try {
+            await fetch(`https://colkidclub-hutech.id.vn/api/rooms/${roomId}/update-video`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                credentials: 'include',
+                body: JSON.stringify({
+                    currentVideoUrl: videoUrl,
+                    currentVideoTitle: videoTitle
+                })
+            });
+        } catch (error) {
+            console.error('Error updating room video info:', error);
+        }
+    };
     // Cập nhật hàm handleVoteVideo
     const handleVoteVideo = (index) => {
         const currentUser = getUserFromToken();
@@ -366,18 +426,17 @@ const ChatRoom = () => {
             const nextVideo = videoQueue[0];
             const updatedQueue = videoQueue.slice(1);
 
-            // Update local queue state
             setVideoQueue(updatedQueue);
             localStorage.setItem(`videoQueue_${roomId}`, JSON.stringify(updatedQueue));
 
-            // Play next video immediately
             setCurrentVideoUrl(nextVideo.url);
             setIsPlaying(true);
             setShowVideoList(false);
 
-            // Broadcast updates
+            // Cập nhật thông tin video
+            updateRoomVideoInfo(nextVideo.url, nextVideo.title);
+
             if (stompClientRef.current && stompClientRef.current.connected) {
-                // Queue update
                 const queueUpdate = {
                     type: 'QUEUE_UPDATE',
                     queue: updatedQueue,
@@ -388,7 +447,6 @@ const ChatRoom = () => {
                     body: JSON.stringify(queueUpdate)
                 });
 
-                // Video state update
                 const videoState = {
                     videoUrl: nextVideo.url,
                     currentTime: 0,
@@ -400,7 +458,6 @@ const ChatRoom = () => {
                     body: JSON.stringify(videoState)
                 });
 
-                // Chat notification
                 const notificationMessage = {
                     sender: 'Thông Báo',
                     content: `Đang phát video tiếp theo: ${nextVideo.title}`,
@@ -412,40 +469,18 @@ const ChatRoom = () => {
                 });
             }
 
-            // If queue is now empty, fetch new trending videos
-            if (updatedQueue.length === 0 && isOwner) {
+            if (updatedQueue.length === 0) {
                 const trendingVideos = await fetchTrendingMusicVideos();
                 if (trendingVideos.length > 0) {
                     setVideoQueue(trendingVideos);
                     localStorage.setItem(`videoQueue_${roomId}`, JSON.stringify(trendingVideos));
-
-                    // Broadcast the new trending queue
-                    if (stompClientRef.current && stompClientRef.current.connected) {
-                        const queueUpdate = {
-                            type: 'QUEUE_UPDATE',
-                            queue: trendingVideos,
-                            roomId: roomId
-                        };
-                        stompClientRef.current.publish({
-                            destination: `/topic/${roomId}`,
-                            body: JSON.stringify(queueUpdate)
-                        });
-
-                        // Notification about new trending videos
-                        const notificationMessage = {
-                            sender: 'Thông Báo',
-                            content: 'Đã cập nhật danh sách nhạc thịnh hành mới',
-                            type: 'CHAT'
-                        };
-                        stompClientRef.current.publish({
-                            destination: `/app/chat.sendMessage/${roomId}`,
-                            body: JSON.stringify(notificationMessage)
-                        });
-                    }
                 }
             }
         } else {
+            // Nếu không còn video trong queue
             setShowVideoList(true);
+            // Xóa thông tin video hiện tại
+            updateRoomVideoInfo(null, null);
         }
     };
 
@@ -494,14 +529,15 @@ const ChatRoom = () => {
 
         const videoUrl = `https://www.youtube.com/watch?v=${videoId}`;
 
-        // If no video is currently playing, play immediately
         if (!currentVideoUrl) {
             setCurrentVideoUrl(videoUrl);
             setShowVideoList(false);
             setIsPlaying(true);
             setYoutubeResults([]);
+
+            // Cập nhật thông tin video
+            updateRoomVideoInfo(videoUrl, videoTitle);
         } else {
-            // Add to queue (this will handle duplicate logic)
             const youtubeVideo = youtubeResults.find(v => v.id.videoId === videoId);
             if (youtubeVideo) {
                 addToQueue(youtubeVideo, true);
@@ -522,10 +558,9 @@ const ChatRoom = () => {
                 body: JSON.stringify(videoState)
             });
 
-            // Send chat notification
             const notificationMessage = {
                 sender: 'Thông Báo',
-                content: `Chủ phòng đã phát video YouTube: ${videoTitle}`,
+                content: `Chủ phòng đã phát video: ${videoTitle}`,
                 type: 'CHAT'
             };
             stompClientRef.current.publish({
