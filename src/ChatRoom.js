@@ -9,7 +9,8 @@ import Header from './components/Header';
 import ReactPlayer from 'react-player';
 import { useSearchParams } from 'react-router-dom';
 import axios from 'axios'; // Thêm axios để gọi API
-import VideoQueue from './components/VideoQueue';  // Điều chỉnh đường dẫn tùy theo cấu trúc thư mục của bạn
+import VideoQueue from './components/VideoQueue';
+import VideoEndScreen from './components/VideoEndScreen';// Điều chỉnh đường dẫn tùy theo cấu trúc thư mục của bạn
 const ChatRoom = () => {
     // Lấy roomId từ URL
     const { roomId } = useParams();
@@ -45,7 +46,7 @@ const ChatRoom = () => {
     const [showQueueModal, setShowQueueModal] = useState(false);
     const [videoQueue, setVideoQueue] = useState([]);
     const [selectedReplyMessage, setSelectedReplyMessage] = useState(null);
-
+    const [showEndScreen, setShowEndScreen] = useState(false);
     const handleQueueClick = () => {
         setShowQueueModal(prev => !prev); // Toggle modal thay vì chỉ mở
     };
@@ -433,67 +434,112 @@ const ChatRoom = () => {
 
     // Modify the onEnded handler in ReactPlayer
     const handleVideoEnd = async () => {
-        if (videoQueue.length > 0 && isOwner) {
-            const nextVideo = videoQueue[0];
-            const updatedQueue = videoQueue.slice(1);
+        // Show form for all users (not just owner)
+        setShowEndScreen(true); // Show end screen form to all participants
 
-            setVideoQueue(updatedQueue);
-            localStorage.setItem(`videoQueue_${roomId}`, JSON.stringify(updatedQueue));
+        // Sắp xếp queue theo số vote một cách nghiêm ngặt
+        const sortedQueue = [...videoQueue].sort((a, b) => {
+            return (b.votes || 0) - (a.votes || 0);
+        });
 
-            setCurrentVideoUrl(nextVideo.url);
-            setIsPlaying(true);
-            setShowVideoList(false);
+        setTimeout(async () => {
+            if (sortedQueue.length > 0) {
+                const mostVotedVideo = sortedQueue.find(video => (video.votes || 0) > 0);
 
-            // Cập nhật thông tin video
-            updateRoomVideoInfo(nextVideo.url, nextVideo.title);
+                if (mostVotedVideo) {
+                    const updatedQueue = videoQueue.filter(v => v.id !== mostVotedVideo.id);
 
-            if (stompClientRef.current && stompClientRef.current.connected) {
-                const queueUpdate = {
-                    type: 'QUEUE_UPDATE',
-                    queue: updatedQueue,
-                    roomId: roomId
-                };
-                stompClientRef.current.publish({
-                    destination: `/topic/${roomId}`,
-                    body: JSON.stringify(queueUpdate)
-                });
+                    setVideoQueue(updatedQueue);
+                    localStorage.setItem(`videoQueue_${roomId}`, JSON.stringify(updatedQueue));
 
-                const videoState = {
-                    videoUrl: nextVideo.url,
-                    currentTime: 0,
-                    isPlaying: true,
-                    type: 'VIDEO_UPDATE'
-                };
-                stompClientRef.current.publish({
-                    destination: `/topic/${roomId}`,
-                    body: JSON.stringify(videoState)
-                });
+                    setCurrentVideoUrl(mostVotedVideo.url);
+                    setIsPlaying(true);
+                    setShowEndScreen(false); // Hide end screen
+                    setShowVideoList(false); // Show the video list
 
-                const notificationMessage = {
-                    sender: 'Thông Báo',
-                    content: `Đang phát video tiếp theo: ${nextVideo.title}`,
-                    type: 'CHAT'
-                };
-                stompClientRef.current.publish({
-                    destination: `/app/chat.sendMessage/${roomId}`,
-                    body: JSON.stringify(notificationMessage)
-                });
-            }
+                    updateRoomVideoInfo(mostVotedVideo.url, mostVotedVideo.title);
 
-            if (updatedQueue.length === 0) {
+                    // Broadcast updates
+                    if (stompClientRef.current && stompClientRef.current.connected) {
+                        const queueUpdate = {
+                            type: 'QUEUE_UPDATE',
+                            queue: updatedQueue,
+                            roomId: roomId
+                        };
+                        stompClientRef.current.publish({
+                            destination: `/topic/${roomId}`,
+                            body: JSON.stringify(queueUpdate)
+                        });
+
+                        const videoState = {
+                            videoUrl: mostVotedVideo.url,
+                            currentTime: 0,
+                            isPlaying: true,
+                            type: 'VIDEO_UPDATE'
+                        };
+                        stompClientRef.current.publish({
+                            destination: `/topic/${roomId}`,
+                            body: JSON.stringify(videoState)
+                        });
+
+                        const notificationMessage = {
+                            sender: 'Thông Báo',
+                            content: `Đang phát video tiếp theo: ${mostVotedVideo.title}`,
+                            type: 'CHAT'
+                        };
+                        stompClientRef.current.publish({
+                            destination: `/app/chat.sendMessage/${roomId}`,
+                            body: JSON.stringify(notificationMessage)
+                        });
+
+                        // Broadcast form visibility to all users
+                        const formVisibilityUpdate = {
+                            type: 'SHOW_FORM_UPDATE',
+                            showEndScreen: true, // All participants should see the end screen
+                            roomId: roomId
+                        };
+                        stompClientRef.current.publish({
+                            destination: `/topic/${roomId}`,
+                            body: JSON.stringify(formVisibilityUpdate)
+                        });
+                    }
+                } else {
+                    setShowEndScreen(false); // Hide end screen
+                    setShowVideoList(false); // Show video list
+
+                    const trendingVideos = await fetchTrendingMusicVideos();
+                    if (trendingVideos.length > 0) {
+                        setVideoQueue(trendingVideos);
+                        localStorage.setItem(`videoQueue_${roomId}`, JSON.stringify(trendingVideos));
+                    }
+
+                    // Broadcast form visibility update to all users
+                    const formVisibilityUpdate = {
+                        type: 'SHOW_FORM_UPDATE',
+                        showEndScreen: false,
+                        roomId: roomId
+                    };
+                    stompClientRef.current.publish({
+                        destination: `/topic/${roomId}`,
+                        body: JSON.stringify(formVisibilityUpdate)
+                    });
+                }
+            } else {
+                setShowEndScreen(false); // Hide end screen
+                setShowVideoList(false); // Show video list
+
                 const trendingVideos = await fetchTrendingMusicVideos();
                 if (trendingVideos.length > 0) {
                     setVideoQueue(trendingVideos);
                     localStorage.setItem(`videoQueue_${roomId}`, JSON.stringify(trendingVideos));
                 }
+
+                // Broadcast form visibility update to all users
+                
             }
-        } else {
-            // Nếu không còn video trong queue
-            setShowVideoList(true);
-            // Xóa thông tin video hiện tại
-            updateRoomVideoInfo(null, null);
-        }
+        }, 10000);
     };
+
 
     // Các trạng thái quản lý video
   
@@ -878,6 +924,13 @@ const ChatRoom = () => {
                             case 'VIDEO_PROGRESS':
                                 handleVideoProgress(receivedMessage);
                                 break;
+                            case 'VIDEO_VOTE':
+                                // Chỉ xử lý vote nếu không phải chủ phòng
+                                if (!isOwner) {
+                                    // Thực hiện vote cho video
+                                    handleVoteVideo(videoQueue.findIndex(v => v.id === receivedMessage.video.id));
+                                }
+                                break;
                             case 'QUEUE_UPDATE':
                                 console.log('Received QUEUE_UPDATE:', receivedMessage);
                                 if (receivedMessage.roomId === roomId) {
@@ -1169,64 +1222,87 @@ const ChatRoom = () => {
             />
 
             <div className="main-content">
+                {/* Video Section */}
                 <div className={`video-section ${showVideoList ? 'with-list' : ''}`}>
-                    {/* Hiển thị thanh tìm kiếm nếu showVideoList là true */}
-                    {showVideoList && (
-                        <>
-                            <div className="search-bar">
-                                <input
-                                    type="text"
-                                    value={searchTerm}
-                                    onChange={(e) => setSearchTerm(e.target.value)}
-                                    placeholder="Tìm kiếm video trên YouTube"
-                                />
-                            </div>
+                    {showEndScreen ? (
+                        <VideoEndScreen
+                            videoQueue={videoQueue}
+                            onVideoSelect={(selectedVideo) => {
+                                // Kiểm tra xem người dùng hiện tại có quyền phát video không
+                                if (stompClientRef.current && stompClientRef.current.connected) {
+                                    // Gửi thông điệp vote/chọn video
+                                    const voteMessage = {
+                                        type: 'VIDEO_VOTE',
+                                        video: selectedVideo,
+                                        voter: currentUser.username
+                                    };
 
-                            {isLoading && (
-                                <div className="loading-bar-container">
-                                    <div className="loading-bar"></div>
-                                </div>
-                            )}
-                        </>
-                    )}
-
-                    {/* Luôn hiển thị video player nếu có currentVideoUrl */}
-                    {currentVideoUrl && (
-                        <ReactPlayer
-                            ref={playerRef}
-                            url={currentVideoUrl}
-                            className={`react-player ${isOwner ? 'owner' : ''}`}
-                            playing={isPlaying}
-                            width="100%"
-                            height="100%"
-                            onPause={handlePause}
-                            onPlay={handlePlay}
-                            onProgress={handleProgress}
-                            onEnded={handleVideoEnd}  // Updated to use new handler
-                            config={{
-                                youtube: {
-                                    playerVars: {
-                                        controls: isOwner ? 1 : 0,
-                                        disablekb: 1,
-                                        modestbranding: 1,
-                                        playsinline: 1,
-                                        rel: 0,
-                                        showinfo: 0,
-                                        iv_load_policy: 3,
-                                        fs: isOwner ? 1 : 0,
-                                    }
+                                    stompClientRef.current.publish({
+                                        destination: `/app/chat.videoVote/${roomId}`,
+                                        body: JSON.stringify(voteMessage)
+                                    });
                                 }
                             }}
-                            style={{ pointerEvents: isOwner ? 'auto' : 'none' }}
+                            onVote={handleVoteVideo}
+                            containerHeight={playerRef.current?.wrapper?.clientHeight}
                         />
-                    )}
-
-                    {/* Hiển thị danh sách video tìm kiếm nếu showVideoList là true */}
-                    {showVideoList && (
-                        <div className="grid-container">
-                            {youtubeResults.length > 0 && (
+                    ) : (
+                        <>
+                            {/* Thanh tìm kiếm */}
+                            {showVideoList && (
                                 <>
-                                    {youtubeResults.map((video) => (
+                                    <div className="search-bar">
+                                        <input
+                                            type="text"
+                                            value={searchTerm}
+                                            onChange={(e) => setSearchTerm(e.target.value)}
+                                            placeholder="Tìm kiếm video trên YouTube"
+                                        />
+                                    </div>
+
+                                    {isLoading && (
+                                        <div className="loading-bar-container">
+                                            <div className="loading-bar"></div>
+                                        </div>
+                                    )}
+                                </>
+                            )}
+
+                            {/* Video Player */}
+                            {currentVideoUrl && (
+                                <ReactPlayer
+                                    ref={playerRef}
+                                    url={currentVideoUrl}
+                                    className={`react-player ${isOwner ? 'owner' : ''}`}
+                                    playing={isPlaying}
+                                    width="100%"
+                                    height="100%"
+                                    onPause={handlePause}
+                                    onPlay={handlePlay}
+                                    onProgress={handleProgress}
+                                    onEnded={handleVideoEnd}
+                                    config={{
+                                        youtube: {
+                                            playerVars: {
+                                                controls: isOwner ? 1 : 0,
+                                                disablekb: 1,
+                                                modestbranding: 1,
+                                                playsinline: 1,
+                                                rel: 0,
+                                                showinfo: 0,
+                                                iv_load_policy: 3,
+                                                fs: isOwner ? 1 : 0,
+                                            }
+                                        }
+                                    }}
+                                    style={{ pointerEvents: isOwner ? 'auto' : 'none' }}
+                                />
+                            )}
+
+                            {/* Danh sách video */}
+                            {showVideoList && (
+                                <div className="grid-container">
+                                    {youtubeResults.length > 0 && youtubeResults.map((video) => (
                                         <div
                                             key={video.id.videoId}
                                             className="video-card"
@@ -1244,29 +1320,29 @@ const ChatRoom = () => {
                                             </div>
                                         </div>
                                     ))}
-                                </>
-                            )}
 
-                            {videoList.map((video, index) => (
-                                <div
-                                    className={`video-card ${!isOwner ? 'disabled-card' : ''}`}
-                                    key={index}
-                                    onClick={() => playVideo(video)}
-                                    style={{ cursor: isOwner ? 'pointer' : 'not-allowed', opacity: isOwner ? 1 : 0.6 }}
-                                    title={isOwner ? 'Click to play video' : 'Bạn không có quyền chọn video'}
-                                >
-                                    <img
-                                        src={`https://colkidclub-hutech.id.vn${video.thumbnail}`}
-                                        alt={`Thumbnail of ${video.title}`}
-                                        className="thumbnail"
-                                    />
-                                    <div className="video-info">
-                                        <p className="video-title">{video.title}</p>
-                                        <span className="video-duration">{video.duration}</span>
-                                    </div>
+                                    {videoList.map((video, index) => (
+                                        <div
+                                            className={`video-card ${!isOwner ? 'disabled-card' : ''}`}
+                                            key={index}
+                                            onClick={() => playVideo(video)}
+                                            style={{ cursor: isOwner ? 'pointer' : 'not-allowed', opacity: isOwner ? 1 : 0.6 }}
+                                            title={isOwner ? 'Click to play video' : 'Bạn không có quyền chọn video'}
+                                        >
+                                            <img
+                                                src={`https://colkidclub-hutech.id.vn${video.thumbnail}`}
+                                                alt={`Thumbnail of ${video.title}`}
+                                                className="thumbnail"
+                                            />
+                                            <div className="video-info">
+                                                <p className="video-title">{video.title}</p>
+                                                <span className="video-duration">{video.duration}</span>
+                                            </div>
+                                        </div>
+                                    ))}
                                 </div>
-                            ))}
-                        </div>
+                            )}
+                        </>
                     )}
                 </div>
                 {showSuccessModal && (

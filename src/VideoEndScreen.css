@@ -1,0 +1,159 @@
+﻿.end-screen-container {
+    width: 100%;
+    height: 100%;
+    background-color: #141414;
+    padding: 20px;
+}
+
+.end-screen-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 16px;
+    border-bottom: 1px solid #2c2c2c;
+    margin-bottom: 20px;
+}
+
+.end-screen-title {
+    color: white;
+    font-size: 24px;
+    font-weight: bold;
+}
+
+.end-screen-countdown {
+    position: relative;
+    width: 32px;
+    height: 32px;
+}
+
+.end-screen-countdown-circle {
+    width: 32px;
+    height: 32px;
+    transform: rotate(-90deg);
+}
+
+.end-screen-countdown-text {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    font-size: 14px;
+}
+
+.end-screen-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 20px;
+    padding: 10px;
+}
+
+.end-screen-card {
+    background: #202020;
+    border-radius: 8px;
+    overflow: hidden;
+    position: relative;
+    cursor: pointer;
+}
+
+.end-screen-thumbnail-container {
+    position: relative;
+    width: 100%;
+    padding-top: 56.25%; /* 16:9 Aspect Ratio */
+}
+
+.end-screen-thumbnail {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.end-screen-info {
+    padding: 12px;
+}
+
+.end-screen-video-title {
+    color: #fff;
+    font-size: 14px;
+    line-height: 1.2;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+
+/* Styles cho phần voters trên thumbnail */
+.end-screen-voters {
+    position: absolute;
+    bottom: 8px;
+    left: 8px;
+    display: flex;
+    align-items: center;
+    z-index: 2;
+}
+
+/* Tạo overlay gradient để làm nổi bật avatars */
+.end-screen-thumbnail-container::after {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    width: 100%;
+    height: 40%;
+    background: linear-gradient(to top, rgba(0,0,0,0.7) 0%, rgba(0,0,0,0) 100%);
+    pointer-events: none;
+}
+
+.end-screen-voter-avatar {
+    width: 50px;
+    height: 50px;
+    border-radius: 50%;
+    border: 2px solid #202020;
+    margin-left: -8px;
+    position: relative;
+    z-index: 1;
+}
+
+    .end-screen-voter-avatar:first-child {
+        margin-left: 0;
+    }
+
+.end-screen-voter-count {
+    background: #333;
+    color: white;
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+    margin-left: -8px;
+    border: 2px solid #202020;
+    position: relative;
+    z-index: 1;
+}
+
+.end-screen-empty {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+    flex-direction: column;
+}
+
+.end-screen-empty-title {
+    color: white;
+    font-size: 24px;
+    font-weight: bold;
+    margin-bottom: 8px;
+}
+
+.end-screen-empty-text {
+    color: #888;
+    font-size: 16px;
+}
