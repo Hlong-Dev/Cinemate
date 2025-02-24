@@ -1,23 +1,60 @@
-﻿import React from 'react';
+﻿import React, { useRef, useEffect } from 'react';
 import ReactPlayer from 'react-player';
 
-const VideoBackgroundEffect = ({ currentVideoUrl, isPlaying }) => {
+const VideoBackgroundEffect = ({
+    currentVideoUrl,
+    isPlaying,
+    seeking,
+    progress,
+    onReady
+}) => {
+    const playerRef = useRef(null);
+    const lastSyncTime = useRef(0);
+    const syncThreshold = 0.5; // Ngưỡng đồng bộ (giây)
+
+    // Theo dõi và đồng bộ thời gian phát
+    useEffect(() => {
+        if (playerRef.current && progress) {
+            const currentTime = progress.playedSeconds;
+            const backgroundTime = playerRef.current.getCurrentTime();
+
+            // Chỉ đồng bộ nếu chênh lệch lớn hơn ngưỡng
+            if (Math.abs(currentTime - backgroundTime) > syncThreshold) {
+                playerRef.current.seekTo(currentTime, 'seconds');
+            }
+        }
+    }, [progress]);
+
+    // Xử lý khi video sẵn sàng
+    const handleReady = () => {
+        if (playerRef.current && progress) {
+            playerRef.current.seekTo(progress.playedSeconds, 'seconds');
+        }
+        if (onReady) onReady();
+    };
+
+    // Đồng bộ khi seeking
+    useEffect(() => {
+        if (seeking && playerRef.current && progress) {
+            playerRef.current.seekTo(progress.playedSeconds, 'seconds');
+        }
+    }, [seeking, progress]);
+
     return (
         <div className="absolute inset-0 w-full h-full overflow-hidden -z-10">
-            {/* Background color overlay for when video is loading */}
             <div className="absolute inset-0 bg-black/50" />
 
-            {/* Video container with blur effects */}
             <div className="absolute inset-0 backdrop-blur-xl">
-                {/* Scale the video up slightly to prevent blur edges from showing */}
                 <div className="absolute inset-0 scale-110">
                     <ReactPlayer
+                        ref={playerRef}
                         url={currentVideoUrl}
                         playing={isPlaying}
-                        loop
                         muted
                         width="100%"
                         height="100%"
+                        onReady={handleReady}
+                        playbackRate={1}
                         style={{
                             filter: 'blur(30px)',
                             opacity: 0.5,
@@ -39,7 +76,9 @@ const VideoBackgroundEffect = ({ currentVideoUrl, isPlaying }) => {
                                     modestbranding: 1,
                                     playsinline: 1,
                                     rel: 0,
-                                    showinfo: 0
+                                    showinfo: 0,
+                                    origin: window.location.origin,
+                                    enablejsapi: 1
                                 }
                             }
                         }}
@@ -47,7 +86,6 @@ const VideoBackgroundEffect = ({ currentVideoUrl, isPlaying }) => {
                 </div>
             </div>
 
-            {/* Additional overlay for depth and contrast */}
             <div
                 className="absolute inset-0"
                 style={{

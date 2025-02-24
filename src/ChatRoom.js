@@ -589,6 +589,8 @@ const ChatRoom = () => {
     const [searchParams] = useSearchParams();
     const urlVideoId = searchParams.get('videoId');
     const autoplay = searchParams.get('autoplay') === 'true';
+    const [seeking, setSeeking] = useState(false);
+    const [progress, setProgress] = useState(null);
     // Hàm search Video
     const searchYoutubeVideos = async () => {
         try {
@@ -1259,6 +1261,7 @@ const ChatRoom = () => {
 
     // Hàm gửi tiến trình video khi tua
     const handleProgress = (state) => {
+        setProgress(state);
         if (isOwner && playerRef.current) {
             const currentTime = state.playedSeconds;
             const actualTime = playerRef.current.getCurrentTime();
@@ -1276,6 +1279,13 @@ const ChatRoom = () => {
             }
         }
     };
+    const handleSeeking = () => {
+        setSeeking(true);
+    };
+
+    const handleSeeked = () => {
+        setSeeking(false);
+    };
     // Hàm show lisr video
     const handleShowVideoList = () => {
         setShowVideoList(prev => !prev); // Toggle showVideoList
@@ -1287,6 +1297,8 @@ const ChatRoom = () => {
                 <VideoBackgroundEffect
                     currentVideoUrl={currentVideoUrl}
                     isPlaying={isPlaying}
+                    seeking={seeking}
+                    progress={progress}
                 />
             )}
             <Header
@@ -1349,6 +1361,9 @@ const ChatRoom = () => {
                                 <ReactPlayer
                                     ref={playerRef}
                                     url={currentVideoUrl}
+                                        onProgress={handleProgress}
+                                        onSeeking={handleSeeking}
+                                        onSeeked={handleSeeked}
                                     className={`react-player ${isOwner ? 'owner' : ''}`}
                                     playing={isPlaying}
                                     width="100%"
