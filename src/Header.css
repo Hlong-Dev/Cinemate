@@ -4,7 +4,7 @@
     justify-content: space-between;
     align-items: center;
     padding: 10px 20px;
-    background: rgba(26, 26, 26, 0.5); /* Làm trong suốt để thấy effect */
+    background: transparent; /* Làm trong suốt để thấy effect */
     backdrop-filter: blur(10px);
     -webkit-backdrop-filter: blur(10px);
     position: relative;
@@ -50,6 +50,7 @@
 
 /* Định dạng popup */
 .popup {
+    margin-top: 80vh !important;
     background-color: rgba(0, 0, 0, 0.6);
     padding: 30px;
     border-radius: 20px; /* Bo góc mềm mại */
