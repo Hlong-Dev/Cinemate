@@ -3,13 +3,26 @@
     flex: 1;
     display: flex;
     flex-direction: column;
-    background-color: #1a1a1a;
+    /*background-color: #1a1a1a;*/
     padding: 10px;
     overflow: hidden; /* Prevent the entire chat section from scrolling */
-    height: 87vh; /* Hoặc đặt theo ý muốn */
-    max-height: 87vh;
+    height: 89vh; /* Hoặc đặt theo ý muốn */
+    max-height: 89vh;
+    background: transparent;
+    transition: all 0.3s ease;
 }
-
+    .chat-section::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        z-index: -1;
+        backdrop-filter: blur(20px);
+        -webkit-backdrop-filter: blur(20px);
+        transition: all 0.3s ease;
+    }
 /* Messages section where the chat messages will scroll */
 .chat-messages {
     flex: 1;
@@ -41,8 +54,9 @@
     display: flex;
     flex-direction: column;
     height: 100vh;
-    background-color: #1a1a1a;
+    /*background-color: #1a1a1a;*/
     color: white;
+    background: transparent;
 }
 
 .main-content {
@@ -133,18 +147,23 @@
     gap: 20px;
 }
 
-.video-card {
+.video-cardd {
     cursor: pointer;
     display: flex;
     flex-direction: column;
     align-items: center;
-   
+    flex: 0 0 300px; /* Cố định chiều rộng cho mỗi card */
+    background: #242424;
+    border-radius: 8px;
+    overflow: hidden;
+    transition: all 0.3s ease;
+    cursor: pointer;
     padding: 10px;
     border-radius: 8px;
     transition: transform 0.3s ease;
 }
 
-    .video-card:hover {
+    .video-cardd:hover {
         transform: scale(1.05);
     }
 
@@ -377,6 +396,9 @@
     }
 
     .video-section {
+        background: rgba(26, 26, 26, 0.3); /* Làm trong suốt */
+        backdrop-filter: blur(5px);
+        -webkit-backdrop-filter: blur(5px);
         width: 100%;
         min-height: 35vh; /* Đặt chiều cao tối thiểu cho phần video là 35% màn hình */
         max-height: 50vh; /* Tối đa 50% màn hình cho phần video */
@@ -392,7 +414,7 @@
         max-height: 50vh; /* Giới hạn chiều cao phần chat còn lại là 50% */
         padding: 10px;
         overflow-y: auto; /* Bật cuộn nếu cần thiết */
-        background-color: #1a1a1a; /* Giữ nền đen cho phần chat */
+       /* background-color: #1a1a1a;*/ /* Giữ nền đen cho phần chat */
     }
 
     /* Điều chỉnh cho các tin nhắn trong phần chat */
@@ -501,7 +523,7 @@
     height: 20px;
 }
 .reply-preview-container {
-    max-height: 40px; /* Giới hạn chiều cao */
+    max-height: 59px; /* Giới hạn chiều cao */
     overflow: hidden;
     white-space: nowrap;
     text-overflow: ellipsis;
@@ -555,7 +577,176 @@
     text-align: left;
     margin-right: auto;
 }
+/* Style chung cho reply message */
+.reply-message {
+    position: relative;
+}
+
+/* Style cho tin nhắn nhận được */
+.received-reply .reply-message {
+    padding-left: 12px;
+}
+
+    .received-reply .reply-message::before {
+        content: '';
+        position: absolute;
+        left: 0;
+        top: 0;
+        bottom: 0;
+        width: 4px;
+        background-color: #666;
+        border-radius: 2px;
+    }
+
+/* Style cho tin nhắn gửi đi */
+.sent-reply .reply-message {
+    padding-right: 12px;
+}
+
+    .sent-reply .reply-message::before {
+        content: '';
+        position: absolute;
+        right: 0;
+        top: 0;
+        bottom: 0;
+        width: 4px;
+        background-color: #666;
+        border-radius: 2px;
+    }
+
+/* Style chung cho reply container */
+.reply-container {
+    margin-bottom: 4px;
+    background-color: rgba(0, 0, 0, 0.1);
+    padding: 8px;
+    border-radius: 8px;
+}
+
+.reply-header {
+    margin-bottom: 4px;
+    font-size: 0.9em;
+    color: #888;
+}
+
+    /* Căn lề cho header */
+    .reply-header.right-align {
+        text-align: right;
+    }
+
+    .reply-header.left-align {
+        text-align: left;
+    }
+.reply-preview-container {
+    padding: 8px;
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+    background-color: rgba(255, 255, 255, 0.05); /* Nền xám nhạt */
+}
 
 
 
+    .reply-preview .reply-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        color: #888; /* Màu text header */
+    }
 
+        .reply-preview .reply-header span {
+            font-size: 14px;
+        }
+
+    .reply-preview .close-reply-btn {
+        background: none;
+        border: none;
+        color: #888;
+        font-size: 20px;
+        cursor: pointer;
+        padding: 0 8px;
+    }
+
+    .reply-preview .reply-content {
+        color: #aaa;
+        font-size: 14px;
+        margin: 0;
+        padding-left: 4px;
+        white-space: nowrap; /* Giữ text trong 1 dòng */
+        overflow: hidden; /* Ẩn phần text dư */
+        text-overflow: ellipsis; /* Thêm dấu ... */
+        max-width: 90%; /* Giới hạn chiều rộng */
+    }
+
+
+.chat-section {
+    position: relative;
+    transition: background-color 0.3s ease;
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+}
+
+    .chat-section::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        z-index: -1;
+        transition: background-color 0.3s ease;
+    }
+
+
+
+.message-content {
+    background: rgba(255, 255, 255, 0.1);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.sent-container .message-content {
+    background: rgba(255, 255, 255, 0.15);
+    color: white;
+}
+
+.received-container .message-content {
+    background: rgba(0, 0, 0, 0.3);
+    color: white;
+}
+
+/* Input section */
+.chat-input-container {
+    background: rgba(0, 0, 0, 0.4);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.chat-input {
+    background: rgba(255, 255, 255, 0.1);
+    color: white;
+}
+
+/* Custom scrollbar to match the theme */
+.chat-messages::-webkit-scrollbar {
+    width: 6px;
+    background: transparent;
+}
+
+.chat-messages::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.2);
+    border-radius: 3px;
+}
+
+    .chat-messages::-webkit-scrollbar-thumb:hover {
+        background: rgba(255, 255, 255, 0.3);
+    }
+
+canvas {
+    position: fixed !important; /* Fixed thay vì absolute */
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 0;
+    pointer-events: none;
+}

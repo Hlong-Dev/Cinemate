@@ -1,10 +1,14 @@
 ﻿/* Header.css */
 .headerr {
-    background-color: #1c1c1e;
-    padding: 10px;
     display: flex;
-    justify-content: center;
+    justify-content: space-between;
     align-items: center;
+    padding: 10px 20px;
+    background: rgba(26, 26, 26, 0.5); /* Làm trong suốt để thấy effect */
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    position: relative;
+    z-index: 1;
 }
 
 .top-bar {
@@ -12,6 +16,7 @@
     justify-content: space-evenly; /* Dàn đều các mục */
     width: 100%;
     align-items: center;
+    position: relative;
 }
 
 .item {
@@ -135,4 +140,33 @@
     color: white;
     font-size: 16px;
     font-weight: 500;
+}
+.countdown-container {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -60%); /* Thay đổi từ -50% thành -65% để nhích lên */
+    width: 40px;
+    height: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+    .countdown-container svg {
+        width: 100%;
+        height: 100%;
+    }
+
+/* Thêm khoảng trống ẩn ở giữa để giữ layout */
+.item.placeholder {
+    visibility: hidden;
+}
+.item.logo {
+  
+    position: absolute;
+    left: 50%;
+    transform: translateX(-50%);
+    flex: 0; /* Không chia sẻ không gian flex */
+    width: 190px; /* Giữ nguyên kích thước logo */
 }

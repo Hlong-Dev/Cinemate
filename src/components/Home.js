@@ -12,7 +12,27 @@ const Home = () => {
     const { user } = useContext(AuthContext);
     const sidebarRef = useRef(null);
     const navigate = useNavigate();
+    useEffect(() => {
+        const handleClickOutside = (event) => {
+            if (sidebarRef.current && !sidebarRef.current.contains(event.target)) {
+                // Make sure we're not clicking the menu toggle button
+                const menuButton = document.querySelector('.menu-icon');
+                if (!menuButton.contains(event.target)) {
+                    setIsSidebarOpen(false);
+                }
+            }
+        };
 
+        // Add event listener only when sidebar is open
+        if (isSidebarOpen) {
+            document.addEventListener('mousedown', handleClickOutside);
+        }
+
+        // Cleanup
+        return () => {
+            document.removeEventListener('mousedown', handleClickOutside);
+        };
+    }, [isSidebarOpen]); 
     const toggleSidebar = () => {
         setIsSidebarOpen(!isSidebarOpen);
     };
@@ -251,25 +271,85 @@ const Home = () => {
                     </div>
                 </>
             )}
-
+            {isSidebarOpen && <div className="sidebar-overlay"></div>}
             <nav ref={sidebarRef} className={`sidebar ${isSidebarOpen ? 'open' : ''}`}>
-                <ul>
-                    <li>
-                        <a href="#" onClick={(e) => { e.preventDefault(); createRoom(); }}>Create Room</a>
-                    </li>
-                    <li><Link to="/">Home</Link></li>
-                    <li><Link to="/dashboard">Dashboard</Link></li>
+                <div className="sidebar-content">
+                    <div className="sidebar-section">
+                        <Link to="/" className="sidebar-item">
+                            <i className="fas fa-globe"></i>
+                            <span>CineMate</span>
+                        </Link>
+                        <Link to="/friends" className="sidebar-item">
+                            <i className="fas fa-user-friends"></i>
+                            <span>Friends</span>
+                        </Link>
+                        <Link to="/account" className="sidebar-item">
+                            <i className="fas fa-user"></i>
+                            <span>My Account</span>
+                        </Link>
+                        <Link to="/connections" className="sidebar-item">
+                            <i className="fas fa-network-wired"></i>
+                            <span>Connections</span>
+                        </Link>
+                        <Link to="/settings" className="sidebar-item">
+                            <i className="fas fa-cog"></i>
+                            <span>App Settings</span>
+                        </Link>
+                    </div>
 
-                    <AuthContext.Consumer>
-                        {({ user }) =>
-                            user ? (
-                                <li><LogoutButton /></li>
-                            ) : (
-                                <li><Link to="/login">Login</Link></li>
-                            )
-                        }
-                    </AuthContext.Consumer>
-                </ul>
+                    <div className="sidebar-section">
+                        {user ? (
+                            <div className="sidebar-item" onClick={() => {
+                                // Xử lý logout
+                                localStorage.removeItem('token');
+                                navigate('/login');
+                                window.location.reload(); // Reload để cập nhật trạng thái
+                            }}>
+                                <i className="fas fa-sign-out-alt"></i>
+                                <span>Log Out</span>
+                            </div>
+                        ) : (
+                            <Link to="/login" className="sidebar-item">
+                                <i className="fas fa-sign-in-alt"></i>
+                                <span>Login</span>
+                            </Link>
+                        )}
+                    </div>
+
+                    <div className="sidebar-section">
+                        <a href="https://rave.io" target="_blank" rel="noopener noreferrer" className="sidebar-item">
+                            <i className="fas fa-r"></i>
+                            <span>CineMate.io</span>
+                        </a>
+                        <a href="https://instagram.com/getraveapp" target="_blank" rel="noopener noreferrer" className="sidebar-item">
+                            <i className="fab fa-instagram"></i>
+                            <span>@getcinemateapp</span>
+                        </a>
+                        <a href="https://twitter.com/raveapp" target="_blank" rel="noopener noreferrer" className="sidebar-item">
+                            <i className="fab fa-twitter"></i>
+                            <span>@cineapp</span>
+                        </a>
+                        <a href="https://facebook.com/Getrave" target="_blank" rel="noopener noreferrer" className="sidebar-item">
+                            <i className="fab fa-facebook-f"></i>
+                            <span>@Getcinemate</span>
+                        </a>
+                        <a href="https://tiktok.com/@raveapp" target="_blank" rel="noopener noreferrer" className="sidebar-item">
+                            <i className="fab fa-tiktok"></i>
+                            <span>@cineapp</span>
+                        </a>
+                        <Link to="/shop" className="sidebar-item">
+                            <i className="fas fa-tshirt"></i>
+                            <span>Shop</span>
+                        </Link>
+                    </div>
+
+                    <div className="sidebar-footer">
+                        <div className="version-info">
+                            <span>v. 1.15.25 Open Beta</span>
+                            <span>Website version</span>
+                        </div>
+                    </div>
+                </div>
             </nav>
         </>
     );

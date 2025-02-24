@@ -10,7 +10,8 @@ import ReactPlayer from 'react-player';
 import { useSearchParams } from 'react-router-dom';
 import axios from 'axios'; // Thêm axios để gọi API
 import VideoQueue from './components/VideoQueue';
-import VideoEndScreen from './components/VideoEndScreen';// Điều chỉnh đường dẫn tùy theo cấu trúc thư mục của bạn
+import VideoEndScreen from './components/VideoEndScreen';
+import VideoBackgroundEffect from './VideoBackgroundEffect';// Điều chỉnh đường dẫn tùy theo cấu trúc thư mục của bạn
 const ChatRoom = () => {
     // Lấy roomId từ URL
     const { roomId } = useParams();
@@ -47,6 +48,8 @@ const ChatRoom = () => {
     const [videoQueue, setVideoQueue] = useState([]);
     const [selectedReplyMessage, setSelectedReplyMessage] = useState(null);
     const [showEndScreen, setShowEndScreen] = useState(false);
+    const [showCountdown, setShowCountdown] = useState(false);
+    const [countdown, setCountdown] = useState(10);
     const handleQueueClick = () => {
         setShowQueueModal(prev => !prev); // Toggle modal thay vì chỉ mở
     };
@@ -89,7 +92,7 @@ const ChatRoom = () => {
                     q: randomKeyword,
                     type: 'video',
                     videoCategoryId: '10', // Music category
-                    maxResults: 15,
+                    maxResults: 10,
                     regionCode: 'VN',
                     videoDuration: 'medium', // Chỉ lấy video có độ dài trung bình
                     order: 'viewCount', // Sắp xếp theo lượt xem
@@ -434,110 +437,142 @@ const ChatRoom = () => {
 
     // Modify the onEnded handler in ReactPlayer
     const handleVideoEnd = async () => {
-        // Show form for all users (not just owner)
-        setShowEndScreen(true); // Show end screen form to all participants
+        // Hiển thị màn hình end và countdown
+        setShowEndScreen(true);
+        setShowCountdown(true);
+        setCountdown(10);
 
-        // Sắp xếp queue theo số vote một cách nghiêm ngặt
-        const sortedQueue = [...videoQueue].sort((a, b) => {
-            return (b.votes || 0) - (a.votes || 0);
-        });
+        let countdownTimer = null;
+        let timeoutId = null;
 
-        setTimeout(async () => {
+        // Hàm xử lý phát video có nhiều vote nhất
+        const playMostVotedVideo = async () => {
+            // Lấy queue mới nhất từ localStorage để đảm bảo dữ liệu mới nhất
+            const currentQueueStr = localStorage.getItem(`videoQueue_${roomId}`);
+            const currentQueue = currentQueueStr ? JSON.parse(currentQueueStr) : [];
+
+            // Sắp xếp theo số vote
+            const sortedQueue = [...currentQueue].sort((a, b) => {
+                const votesA = a.votes || 0;
+                const votesB = b.votes || 0;
+                if (votesB !== votesA) {
+                    return votesB - votesA;
+                }
+                // Nếu số vote bằng nhau, ưu tiên video được thêm vào sau
+                return currentQueue.indexOf(b) - currentQueue.indexOf(a);
+            });
+
+            console.log('Sorted queue at playback time:', sortedQueue);
+
             if (sortedQueue.length > 0) {
+                // Tìm video có vote cao nhất
                 const mostVotedVideo = sortedQueue.find(video => (video.votes || 0) > 0);
 
                 if (mostVotedVideo) {
-                    const updatedQueue = videoQueue.filter(v => v.id !== mostVotedVideo.id);
+                    console.log('Selected video to play:', mostVotedVideo.title);
 
+                    // Cập nhật queue mới
+                    const updatedQueue = sortedQueue.filter(v => v.id !== mostVotedVideo.id);
+
+                    // Cập nhật state và localStorage
                     setVideoQueue(updatedQueue);
                     localStorage.setItem(`videoQueue_${roomId}`, JSON.stringify(updatedQueue));
 
+                    // Phát video
                     setCurrentVideoUrl(mostVotedVideo.url);
                     setIsPlaying(true);
-                    setShowEndScreen(false); // Hide end screen
-                    setShowVideoList(false); // Show the video list
 
-                    updateRoomVideoInfo(mostVotedVideo.url, mostVotedVideo.title);
+                    // Cập nhật thông tin video
+                    await updateRoomVideoInfo(mostVotedVideo.url, mostVotedVideo.title);
 
-                    // Broadcast updates
-                    if (stompClientRef.current && stompClientRef.current.connected) {
-                        const queueUpdate = {
-                            type: 'QUEUE_UPDATE',
-                            queue: updatedQueue,
-                            roomId: roomId
-                        };
+                    // Broadcast các cập nhật
+                    if (stompClientRef.current?.connected) {
+                        // Broadcast queue update trước
                         stompClientRef.current.publish({
                             destination: `/topic/${roomId}`,
-                            body: JSON.stringify(queueUpdate)
+                            body: JSON.stringify({
+                                type: 'QUEUE_UPDATE',
+                                queue: updatedQueue,
+                                roomId: roomId
+                            })
                         });
 
-                        const videoState = {
-                            videoUrl: mostVotedVideo.url,
-                            currentTime: 0,
-                            isPlaying: true,
-                            type: 'VIDEO_UPDATE'
-                        };
+                        // Sau đó broadcast video state
                         stompClientRef.current.publish({
                             destination: `/topic/${roomId}`,
-                            body: JSON.stringify(videoState)
+                            body: JSON.stringify({
+                                type: 'VIDEO_UPDATE',
+                                videoUrl: mostVotedVideo.url,
+                                currentTime: 0,
+                                isPlaying: true
+                            })
                         });
 
-                        const notificationMessage = {
-                            sender: 'Thông Báo',
-                            content: `Đang phát video tiếp theo: ${mostVotedVideo.title}`,
-                            type: 'CHAT'
-                        };
+                        // Cuối cùng gửi thông báo
                         stompClientRef.current.publish({
                             destination: `/app/chat.sendMessage/${roomId}`,
-                            body: JSON.stringify(notificationMessage)
-                        });
-
-                        // Broadcast form visibility to all users
-                        const formVisibilityUpdate = {
-                            type: 'SHOW_FORM_UPDATE',
-                            showEndScreen: true, // All participants should see the end screen
-                            roomId: roomId
-                        };
-                        stompClientRef.current.publish({
-                            destination: `/topic/${roomId}`,
-                            body: JSON.stringify(formVisibilityUpdate)
+                            body: JSON.stringify({
+                                sender: 'Thông Báo',
+                                content: `Đang phát video được vote cao nhất: ${mostVotedVideo.title}`,
+                                type: 'CHAT'
+                            })
                         });
                     }
                 } else {
-                    setShowEndScreen(false); // Hide end screen
-                    setShowVideoList(false); // Show video list
-
-                    const trendingVideos = await fetchTrendingMusicVideos();
-                    if (trendingVideos.length > 0) {
-                        setVideoQueue(trendingVideos);
-                        localStorage.setItem(`videoQueue_${roomId}`, JSON.stringify(trendingVideos));
-                    }
-
-                    // Broadcast form visibility update to all users
-                    const formVisibilityUpdate = {
-                        type: 'SHOW_FORM_UPDATE',
-                        showEndScreen: false,
-                        roomId: roomId
-                    };
-                    stompClientRef.current.publish({
-                        destination: `/topic/${roomId}`,
-                        body: JSON.stringify(formVisibilityUpdate)
-                    });
+                    await loadTrendingVideos();
                 }
             } else {
-                setShowEndScreen(false); // Hide end screen
-                setShowVideoList(false); // Show video list
-
-                const trendingVideos = await fetchTrendingMusicVideos();
-                if (trendingVideos.length > 0) {
-                    setVideoQueue(trendingVideos);
-                    localStorage.setItem(`videoQueue_${roomId}`, JSON.stringify(trendingVideos));
-                }
-
-                // Broadcast form visibility update to all users
-                
+                await loadTrendingVideos();
             }
+
+            // Reset UI states
+            setShowEndScreen(false);
+            setShowVideoList(false);
+            setShowCountdown(false);
+        };
+
+        const loadTrendingVideos = async () => {
+            const trendingVideos = await fetchTrendingMusicVideos();
+            if (trendingVideos.length > 0) {
+                setVideoQueue(trendingVideos);
+                localStorage.setItem(`videoQueue_${roomId}`, JSON.stringify(trendingVideos));
+
+                // Broadcast cập nhật queue mới
+                if (stompClientRef.current?.connected) {
+                    stompClientRef.current.publish({
+                        destination: `/topic/${roomId}`,
+                        body: JSON.stringify({
+                            type: 'QUEUE_UPDATE',
+                            queue: trendingVideos,
+                            roomId: roomId
+                        })
+                    });
+                }
+            }
+        };
+
+        // Bắt đầu đếm ngược
+        countdownTimer = setInterval(() => {
+            setCountdown(prev => {
+                if (prev <= 1) {
+                    clearInterval(countdownTimer);
+                    return 0;
+                }
+                return prev - 1;
+            });
+        }, 1000);
+
+        // Set timeout để phát video sau khi đếm ngược kết thúc
+        timeoutId = setTimeout(() => {
+            clearInterval(countdownTimer);
+            playMostVotedVideo();
         }, 10000);
+
+        // Cleanup function
+        return () => {
+            if (countdownTimer) clearInterval(countdownTimer);
+            if (timeoutId) clearTimeout(timeoutId);
+        };
     };
 
 
@@ -1016,7 +1051,31 @@ const ChatRoom = () => {
             }
         }
     };
-
+    const processImage = async (file) => {
+        return new Promise((resolve) => {
+            new Compressor(file, {
+                quality: 0.3, // Giảm chất lượng xuống 30%
+                maxWidth: 500,
+                maxHeight: 500,
+                mimeType: 'image/jpeg', // Chuyển đổi sang JPEG
+                convertTypes: ['image/png', 'image/webp'], // Chuyển đổi PNG và WebP sang JPEG
+                success(result) {
+                    const reader = new FileReader();
+                    reader.onloadend = () => {
+                        const base64String = reader.result
+                            .replace('data:', '')
+                            .replace(/^.+,/, '');
+                        resolve(base64String);
+                    };
+                    reader.readAsDataURL(result);
+                },
+                error(err) {
+                    console.error('Image compression failed:', err);
+                    resolve(null);
+                },
+            });
+        });
+    };
 
     // Hàm xử lý VIDEO_PLAY
     const handleVideoPlay = (message) => {
@@ -1066,14 +1125,21 @@ const ChatRoom = () => {
         inputRef.current.focus();
     };
     // Hàm gửi tin nhắn
-    const sendMessage = () => {
+    const sendMessage = async () => {
         if (stompClientRef.current && stompClientRef.current.connected && (messageContent.trim() || selectedImage)) {
+            let imageData = null;
+
+            // Xử lý ảnh nếu có
+            if (selectedImage) {
+                imageData = await processImage(selectedImage);
+            }
+
             const chatMessage = {
                 id: Date.now(),
                 sender: currentUser.username,
                 avtUrl: currentUser.avtUrl,
                 content: messageContent.trim(),
-                image: null,
+                image: imageData, // Thêm dữ liệu ảnh đã xử lý
                 type: "CHAT",
                 replyTo: selectedReplyMessage ? {
                     id: selectedReplyMessage.id,
@@ -1089,7 +1155,9 @@ const ChatRoom = () => {
                 body: JSON.stringify(chatMessage)
             });
 
+            // Reset các state
             setMessageContent('');
+            setSelectedImage(null);
             setSelectedReplyMessage(null);
         } else {
             console.error("WebSocket not connected or message is empty.");
@@ -1215,10 +1283,17 @@ const ChatRoom = () => {
     // Tr
     return (
         <div className="container">
+            {currentVideoUrl && (
+                <VideoBackgroundEffect
+                    currentVideoUrl={currentVideoUrl}
+                />
+            )}
             <Header
                 usersInRoom={usersInRoom}
                 onSearchClick={handleShowVideoList}
-                onQueueClick={handleQueueClick}  // Thêm dòng này
+                onQueueClick={handleQueueClick}
+                showCountdown={showCountdown}
+                countdown={countdown}
             />
 
             <div className="main-content">
@@ -1305,7 +1380,7 @@ const ChatRoom = () => {
                                     {youtubeResults.length > 0 && youtubeResults.map((video) => (
                                         <div
                                             key={video.id.videoId}
-                                            className="video-card"
+                                            className="video-cardd"
                                             onClick={() => addToQueue(video, true)}
                                             style={{ cursor: 'pointer' }}
                                         >
@@ -1323,7 +1398,7 @@ const ChatRoom = () => {
 
                                     {videoList.map((video, index) => (
                                         <div
-                                            className={`video-card ${!isOwner ? 'disabled-card' : ''}`}
+                                            className={`video-cardd ${!isOwner ? 'disabled-card' : ''}`}
                                             key={index}
                                             onClick={() => playVideo(video)}
                                             style={{ cursor: isOwner ? 'pointer' : 'not-allowed', opacity: isOwner ? 1 : 0.6 }}
@@ -1360,6 +1435,7 @@ const ChatRoom = () => {
                     currentUser={currentUser}  // Thêm dòng này
                 />
                 <div className="chat-section">
+                    
 
                     <div className="chat-messages" id="chatMessages" ref={chatMessagesRef}>
                         <ul>

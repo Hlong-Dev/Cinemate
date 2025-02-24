@@ -5,7 +5,7 @@ import { faTimes, faBars, faCog, faSearch, faCheck, faUserFriends, faGlobe, faUs
 import { useNavigate, useParams } from 'react-router-dom';
 import '../Header.css';
 
-const Header = ({ usersInRoom, onSearchClick, onQueueClick }) => { // Thêm onSearchClick vào props
+const Header = ({ usersInRoom, onSearchClick, onQueueClick, showCountdown, countdown }) => {
     const { roomId } = useParams(); // Lấy roomId từ URL
     const [showPopup, setShowPopup] = useState(false);
     const [showUserList, setShowUserList] = useState(false); // Trạng thái để hiển thị danh sách người dùng
@@ -55,19 +55,59 @@ const Header = ({ usersInRoom, onSearchClick, onQueueClick }) => { // Thêm onSe
                 <div className="item" onClick={handleLeaveClick}>
                     <FontAwesomeIcon icon={faTimes} className="icon" />
                 </div>
-                <div className="item"><FontAwesomeIcon icon={faBars} className="icon" /></div>
-                <div className="item"><FontAwesomeIcon icon={faCog} className="icon" /></div>
-                <div className="item" onClick={onSearchClick}> {/* Thêm onClick handler */}
+                <div className="item">
+                    <FontAwesomeIcon icon={faBars} className="icon" />
+                </div>
+                <div className="item">
+                    <FontAwesomeIcon icon={faCog} className="icon" />
+                </div>
+                <div className="item" onClick={onSearchClick}>
                     <FontAwesomeIcon icon={faSearch} className="icon" />
                 </div>
+
+                {/* Placeholder để giữ khoảng trống */}
+                <div className="item placeholder"></div>
+
+                {/* Logo/Countdown được position absolute */}
                 <div className="item logo">
-                    <img src="https://i.imgur.com/Rp89NPj.png" alt="Rave" />
+                    {showCountdown ? (
+                        <div className="countdown-container">
+                            <svg viewBox="0 0 40 40">
+                                <circle
+                                    cx="20"
+                                    cy="20"
+                                    r="18"
+                                    fill="none"
+                                    stroke="#666"
+                                    strokeWidth="2"
+                                />
+                                <text
+                                    x="20"
+                                    y="20"
+                                    textAnchor="middle"
+                                    dominantBaseline="central"
+                                    fill="#fff"
+                                    fontSize="20"
+                                    fontWeight="bold"
+                                >
+                                    {countdown}
+                                </text>
+                            </svg>
+                        </div>
+                    ) : (
+                        <img src="https://i.imgur.com/Rp89NPj.png" alt="Cinemate" />
+                    )}
                 </div>
+
                 <div className="item" onClick={onQueueClick}>
                     <FontAwesomeIcon icon={faCheck} className="icon" />
                 </div>
-                <div className="item"><FontAwesomeIcon icon={faUserFriends} className="icon" /></div>
-                <div className="item"><FontAwesomeIcon icon={faGlobe} className="icon" /></div>
+                <div className="item">
+                    <FontAwesomeIcon icon={faUserFriends} className="icon" />
+                </div>
+                <div className="item">
+                    <FontAwesomeIcon icon={faGlobe} className="icon" />
+                </div>
                 <div className="item" onClick={toggleUserList}>
                     <FontAwesomeIcon icon={faUsers} className="icon" />
                 </div>
