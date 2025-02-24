@@ -1286,6 +1286,7 @@ const ChatRoom = () => {
             {currentVideoUrl && (
                 <VideoBackgroundEffect
                     currentVideoUrl={currentVideoUrl}
+                    isPlaying={isPlaying}
                 />
             )}
             <Header
