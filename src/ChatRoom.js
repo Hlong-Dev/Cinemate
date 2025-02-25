@@ -468,6 +468,10 @@ const ChatRoom = () => {
     };
 
     // Modify the onEnded handler in ReactPlayer
+    // Tìm và thay thế hàm handleVideoEnd với phiên bản đã sửa này
+
+    // Sửa hàm handleVideoEnd để chỉ gửi thông báo "Now playing" một lần duy nhất
+
     const handleVideoEnd = async () => {
         setShowEndScreen(true);
         setShowCountdown(true);
@@ -496,7 +500,11 @@ const ChatRoom = () => {
                     let channelAvatar = 'https://i.imgur.com/WxNkK7J.png';
                     if (mostVotedVideo.url.includes('youtube.com')) {
                         const videoId = mostVotedVideo.url.split('v=')[1];
-                        channelAvatar = await fetchYouTubeChannelAvatar(videoId);
+                        try {
+                            channelAvatar = await fetchYouTubeChannelAvatar(videoId);
+                        } catch (error) {
+                            console.error('Error fetching channel avatar:', error);
+                        }
                     }
 
                     const updatedQueue = sortedQueue.filter(v => v.id !== mostVotedVideo.id);
@@ -508,15 +516,21 @@ const ChatRoom = () => {
                     await updateRoomVideoInfo(mostVotedVideo.url, mostVotedVideo.title);
 
                     if (stompClientRef.current?.connected) {
-                        //stompClientRef.current.publish({
-                        //    destination: `/topic/${roomId}`,
-                        //    body: JSON.stringify({
-                        //        type: 'QUEUE_UPDATE',
-                        //        queue: updatedQueue,
-                        //        roomId: roomId
-                        //    })
-                        //});
+                        // Tạo một mảng để theo dõi các thông điệp đã gửi
+                        const messagesSent = [];
 
+                        // Gửi cập nhật hàng đợi tới tất cả người dùng
+                        stompClientRef.current.publish({
+                            destination: `/topic/${roomId}`,
+                            body: JSON.stringify({
+                                type: 'QUEUE_UPDATE',
+                                queue: updatedQueue,
+                                roomId: roomId
+                            })
+                        });
+                        messagesSent.push('QUEUE_UPDATE');
+
+                        // Gửi cập nhật video tới tất cả người dùng
                         stompClientRef.current.publish({
                             destination: `/topic/${roomId}`,
                             body: JSON.stringify({
@@ -526,16 +540,22 @@ const ChatRoom = () => {
                                 isPlaying: true
                             })
                         });
+                        messagesSent.push('VIDEO_UPDATE');
 
-                        stompClientRef.current.publish({
-                            destination: `/app/chat.sendMessage/${roomId}`,
-                            body: JSON.stringify({
-                                sender: 'Now playing',
-                                content: `${mostVotedVideo.title}`,
-                                type: 'CHAT',
-                                avtUrl: channelAvatar
-                            })
-                        });
+                        // Chỉ gửi thông báo "Now playing" một lần duy nhất
+                        // và chỉ gửi nếu người dùng hiện tại là chủ phòng
+                        if (isOwner && !messagesSent.includes('NOW_PLAYING')) {
+                            stompClientRef.current.publish({
+                                destination: `/app/chat.sendMessage/${roomId}`,
+                                body: JSON.stringify({
+                                    sender: 'Now playing',
+                                    content: `${mostVotedVideo.title}`,
+                                    type: 'CHAT',
+                                    avtUrl: channelAvatar
+                                })
+                            });
+                            messagesSent.push('NOW_PLAYING');
+                        }
                     }
                 } else {
                     await loadTrendingVideos();
@@ -549,7 +569,7 @@ const ChatRoom = () => {
             setShowCountdown(false);
         };
 
-
+        // Phần còn lại của hàm giữ nguyên
         const loadTrendingVideos = async () => {
             const trendingVideos = await fetchTrendingMusicVideos();
             if (trendingVideos.length > 0) {
