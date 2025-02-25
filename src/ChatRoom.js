@@ -182,10 +182,52 @@ const ChatRoom = () => {
 
         initializeQueue();
     }, [roomId, isOwner]);
-    const addToQueue = (video, isYouTube = false) => {
-        
+    const fetchYouTubeChannelAvatar = async (videoId) => {
+        try {
+            // First get video details to get channel ID
+            const videoResponse = await axios.get(
+                `https://www.googleapis.com/youtube/v3/videos`,
+                {
+                    params: {
+                        part: 'snippet',
+                        id: videoId,
+                        key: API_KEY
+                    }
+                }
+            );
 
+            const channelId = videoResponse.data.items[0].snippet.channelId;
+
+            // Then get channel details to get avatar
+            const channelResponse = await axios.get(
+                `https://www.googleapis.com/youtube/v3/channels`,
+                {
+                    params: {
+                        part: 'snippet',
+                        id: channelId,
+                        key: API_KEY
+                    }
+                }
+            );
+
+            return channelResponse.data.items[0].snippet.thumbnails.default.url;
+        } catch (error) {
+            console.error('Error fetching channel avatar:', error);
+            return 'https://i.imgur.com/WxNkK7J.png'; // Default avatar if fetch fails
+        }
+    };
+    const addToQueue = async (video, isYouTube = false) => {
         const currentUser = getUserFromToken();
+
+        // Fetch channel avatar for YouTube videos
+        let channelAvatar = 'https://i.imgur.com/WxNkK7J.png';
+        if (isYouTube) {
+            try {
+                channelAvatar = await fetchYouTubeChannelAvatar(video.id.videoId);
+            } catch (error) {
+                console.error('Error fetching channel avatar:', error);
+            }
+        }
 
         // Prepare the new queue item
         const newQueueItem = {
@@ -197,6 +239,7 @@ const ChatRoom = () => {
             duration: video.duration,
             allowUserQueue: true,
             votes: 1,
+            channelAvatar: channelAvatar, // Add channel avatar to queue item
             voters: [{
                 username: currentUser.username,
                 avtUrl: currentUser.avtUrl
@@ -222,11 +265,12 @@ const ChatRoom = () => {
                     body: JSON.stringify(videoState)
                 });
 
-                // Send chat notification
+                // Send chat notification with channel avatar
                 const notificationMessage = {
-                    sender: 'Thông Báo',
-                    content: `Chủ phòng đã phát video mới: ${newQueueItem.title}`,
-                    type: 'CHAT'
+                    sender: 'Now playimg',
+                    content: `${newQueueItem.title}`,
+                    type: 'CHAT',
+                    avtUrl: newQueueItem.channelAvatar // Use channel avatar
                 };
                 stompClientRef.current.publish({
                     destination: `/app/chat.sendMessage/${roomId}`,
@@ -285,22 +329,10 @@ const ChatRoom = () => {
             setShowSuccessModal(false);
         }, 2000);
 
-        // Gửi thông báo vote trong chat
-        if (stompClientRef.current && stompClientRef.current.connected) {
-            const notificationMessage = {
-                sender: 'Thông Báo',
-                content: `${currentUser.username} đã vote cho video "${newQueueItem.title}"`,
-                type: 'CHAT'
-            };
-            stompClientRef.current.publish({
-                destination: `/app/chat.sendMessage/${roomId}`,
-                body: JSON.stringify(notificationMessage)
-            });
-        }
-
         // Broadcast queue update
         broadcastQueueUpdate(updatedQueue);
     };
+
     const updateRoomVideoInfo = async (videoUrl, videoTitle) => {
         if (!isOwner) return;
 
@@ -372,17 +404,17 @@ const ChatRoom = () => {
             });
 
             // Gửi thông báo trong chat
-            if (stompClientRef.current && stompClientRef.current.connected) {
-                const notificationMessage = {
-                    sender: 'Thông Báo',
-                    content: `${currentUser.username} đã vote cho video "${targetVideo.title}"`,
-                    type: 'CHAT'
-                };
-                stompClientRef.current.publish({
-                    destination: `/app/chat.sendMessage/${roomId}`,
-                    body: JSON.stringify(notificationMessage)
-                });
-            }
+            //if (stompClientRef.current && stompClientRef.current.connected) {
+            //    const notificationMessage = {
+            //        sender: 'Thông Báo',
+            //        content: `${currentUser.username} đã vote cho video "${targetVideo.title}"`,
+            //        type: 'CHAT'
+            //    };
+            //    stompClientRef.current.publish({
+            //        destination: `/app/chat.sendMessage/${roomId}`,
+            //        body: JSON.stringify(notificationMessage)
+            //    });
+            //}
         }
 
         // Sắp xếp lại queue theo số vote
@@ -437,7 +469,6 @@ const ChatRoom = () => {
 
     // Modify the onEnded handler in ReactPlayer
     const handleVideoEnd = async () => {
-        // Hiển thị màn hình end và countdown
         setShowEndScreen(true);
         setShowCountdown(true);
         setCountdown(10);
@@ -445,59 +476,47 @@ const ChatRoom = () => {
         let countdownTimer = null;
         let timeoutId = null;
 
-        // Hàm xử lý phát video có nhiều vote nhất
         const playMostVotedVideo = async () => {
-            // Lấy queue mới nhất từ localStorage để đảm bảo dữ liệu mới nhất
             const currentQueueStr = localStorage.getItem(`videoQueue_${roomId}`);
             const currentQueue = currentQueueStr ? JSON.parse(currentQueueStr) : [];
-
-            // Sắp xếp theo số vote
             const sortedQueue = [...currentQueue].sort((a, b) => {
                 const votesA = a.votes || 0;
                 const votesB = b.votes || 0;
                 if (votesB !== votesA) {
                     return votesB - votesA;
                 }
-                // Nếu số vote bằng nhau, ưu tiên video được thêm vào sau
                 return currentQueue.indexOf(b) - currentQueue.indexOf(a);
             });
 
-            console.log('Sorted queue at playback time:', sortedQueue);
-
             if (sortedQueue.length > 0) {
-                // Tìm video có vote cao nhất
                 const mostVotedVideo = sortedQueue.find(video => (video.votes || 0) > 0);
 
                 if (mostVotedVideo) {
-                    console.log('Selected video to play:', mostVotedVideo.title);
+                    // Get channel avatar if it's a YouTube video
+                    let channelAvatar = 'https://i.imgur.com/WxNkK7J.png';
+                    if (mostVotedVideo.url.includes('youtube.com')) {
+                        const videoId = mostVotedVideo.url.split('v=')[1];
+                        channelAvatar = await fetchYouTubeChannelAvatar(videoId);
+                    }
 
-                    // Cập nhật queue mới
                     const updatedQueue = sortedQueue.filter(v => v.id !== mostVotedVideo.id);
-
-                    // Cập nhật state và localStorage
                     setVideoQueue(updatedQueue);
                     localStorage.setItem(`videoQueue_${roomId}`, JSON.stringify(updatedQueue));
-
-                    // Phát video
                     setCurrentVideoUrl(mostVotedVideo.url);
                     setIsPlaying(true);
 
-                    // Cập nhật thông tin video
                     await updateRoomVideoInfo(mostVotedVideo.url, mostVotedVideo.title);
 
-                    // Broadcast các cập nhật
                     if (stompClientRef.current?.connected) {
-                        // Broadcast queue update trước
-                        stompClientRef.current.publish({
-                            destination: `/topic/${roomId}`,
-                            body: JSON.stringify({
-                                type: 'QUEUE_UPDATE',
-                                queue: updatedQueue,
-                                roomId: roomId
-                            })
-                        });
+                        //stompClientRef.current.publish({
+                        //    destination: `/topic/${roomId}`,
+                        //    body: JSON.stringify({
+                        //        type: 'QUEUE_UPDATE',
+                        //        queue: updatedQueue,
+                        //        roomId: roomId
+                        //    })
+                        //});
 
-                        // Sau đó broadcast video state
                         stompClientRef.current.publish({
                             destination: `/topic/${roomId}`,
                             body: JSON.stringify({
@@ -508,13 +527,13 @@ const ChatRoom = () => {
                             })
                         });
 
-                        // Cuối cùng gửi thông báo
                         stompClientRef.current.publish({
                             destination: `/app/chat.sendMessage/${roomId}`,
                             body: JSON.stringify({
-                                sender: 'Thông Báo',
-                                content: `Đang phát video được vote cao nhất: ${mostVotedVideo.title}`,
-                                type: 'CHAT'
+                                sender: 'Now playing',
+                                content: `${mostVotedVideo.title}`,
+                                type: 'CHAT',
+                                avtUrl: channelAvatar
                             })
                         });
                     }
@@ -525,11 +544,11 @@ const ChatRoom = () => {
                 await loadTrendingVideos();
             }
 
-            // Reset UI states
             setShowEndScreen(false);
             setShowVideoList(false);
             setShowCountdown(false);
         };
+
 
         const loadTrendingVideos = async () => {
             const trendingVideos = await fetchTrendingMusicVideos();
@@ -615,13 +634,14 @@ const ChatRoom = () => {
     };
 
     // Hàm phát video YouTube
-    const playYoutubeVideo = (videoId, videoTitle) => {
+    const playYoutubeVideo = async (videoId, videoTitle) => {
         if (!isOwner) {
             alert("Chỉ chủ phòng mới có thể chọn video.");
             return;
         }
 
         const videoUrl = `https://www.youtube.com/watch?v=${videoId}`;
+        const channelAvatar = await fetchYouTubeChannelAvatar(videoId);
 
         if (!currentVideoUrl) {
             setCurrentVideoUrl(videoUrl);
@@ -653,9 +673,10 @@ const ChatRoom = () => {
             });
 
             const notificationMessage = {
-                sender: 'Thông Báo',
-                content: `Chủ phòng đã phát video: ${videoTitle}`,
-                type: 'CHAT'
+                sender: 'Now playing',
+                content: `${videoTitle}`,
+                type: 'CHAT',
+                avtUrl: channelAvatar // Use channel avatar for notification
             };
             stompClientRef.current.publish({
                 destination: `/app/chat.sendMessage/${roomId}`,
@@ -691,6 +712,14 @@ const ChatRoom = () => {
                     const videoTitle = videoDetailsResponse.data.items[0]?.snippet.title || 'Unknown Video';
                     const videoUrl = `https://www.youtube.com/watch?v=${urlVideoId}`;
 
+                    // Fetch channel avatar
+                    let channelAvatar = 'https://i.imgur.com/WxNkK7J.png';
+                    try {
+                        channelAvatar = await fetchYouTubeChannelAvatar(urlVideoId);
+                    } catch (avatarError) {
+                        console.error('Error fetching channel avatar:', avatarError);
+                    }
+
                     // Set video state
                     setCurrentVideoUrl(videoUrl);
                     setShowVideoList(false);
@@ -704,19 +733,18 @@ const ChatRoom = () => {
                             isPlaying: autoplay,
                             type: 'VIDEO_UPDATE'
                         };
-
                         stompClientRef.current.publish({
                             destination: `/app/chat.videoUpdate/${roomId}`,
                             body: JSON.stringify(videoState)
                         });
 
-                        // Send chat notification with video title
+                        // Send chat notification with video title and channel avatar
                         const notificationMessage = {
-                            sender: 'Thông Báo',
-                            content: `Chủ phòng đã phát video YouTube: ${videoTitle}`,
-                            type: 'CHAT'
+                            sender: 'Now playing',
+                            content: `${videoTitle}`,
+                            type: 'CHAT',
+                            avtUrl: channelAvatar
                         };
-
                         stompClientRef.current.publish({
                             destination: `/app/chat.sendMessage/${roomId}`,
                             body: JSON.stringify(notificationMessage)
@@ -732,7 +760,6 @@ const ChatRoom = () => {
                 }
             }
         };
-
         initializeVideoFromUrl();
     }, [urlVideoId, autoplay, isWebSocketReady, isOwner, roomId]);
     // Thêm useEffect để theo dõi việc load ảnh
@@ -781,11 +808,6 @@ const ChatRoom = () => {
                 }
             }
         };
-
-        // Chỉ thiết lập interval khi:
-        // 1. Là chủ phòng
-        // 2. Có video đang phát
-        // 3. Không đang trong chế độ tìm kiếm
         if (isOwner && currentVideoUrl && !showVideoList) {
             // Clear interval cũ nếu có
             if (syncInterval) {
@@ -1211,8 +1233,8 @@ const ChatRoom = () => {
 
             // Send chat notification
             const notificationMessage = {
-                sender: 'Thông Báo',
-                content: `Chủ phòng đã phát video mới: ${videoTitleWithoutExtension}`,
+                sender: 'Now playing',
+                content: `${videoTitleWithoutExtension}`,
                 type: 'CHAT'
             };
             stompClientRef.current.publish({
@@ -1344,7 +1366,7 @@ const ChatRoom = () => {
                                             type="text"
                                             value={searchTerm}
                                             onChange={(e) => setSearchTerm(e.target.value)}
-                                            placeholder="Tìm kiếm video trên YouTube"
+                                                placeholder="search video, series, or film..."
                                         />
                                     </div>
 
@@ -1460,8 +1482,12 @@ const ChatRoom = () => {
                                 const isSameSenderAsPrevious = index > 0 && message.sender === messages[index - 1]?.sender;
                                 const avtUrl = message.avtUrl || 'https://i.imgur.com/WxNkK7J.png';
 
-                                // Kiểm tra nếu tin nhắn có reply
-                                const hasReply = message.replyTo && message.replyTo.content;
+                                // Kiểm tra xem có phải tin nhắn "Now playing" không
+                                const isNowPlayingMessage = message.sender === 'Now playing';
+
+                                // Điều kiện để hiển thị avatar
+                                const shouldShowAvatar = !isSender &&
+                                    (!isSameSenderAsPrevious || isNowPlayingMessage);
 
                                 // Xử lý tin nhắn hệ thống (JOIN/LEAVE)
                                 if (message.type === 'JOIN' || message.type === 'LEAVE') {
@@ -1472,7 +1498,7 @@ const ChatRoom = () => {
                                                     <img src={avtUrl} alt="Avatar" />
                                                 </div>
                                                 <div className="message-content">
-                                                    <em>{message.sender} {message.type === 'JOIN' ? 'đã tham gia phòng' : 'đã rời khỏi phòng'}</em>
+                                                    <em>{message.sender} {message.type === 'JOIN' ? 'has joined' : 'has left'}</em>
                                                 </div>
                                             </div>
                                         </li>
@@ -1481,33 +1507,31 @@ const ChatRoom = () => {
 
                                 return (
                                     <li key={index} className={`message-item ${isSender ? "sent" : "received"}`}>
-
-                                        {/* Nếu tin nhắn này không phải của người gửi, hiển thị Avatar */}
-                                        {!isSender && !isSameSenderAsPrevious && (
+                                        {/* Hiển thị Avatar */}
+                                        {shouldShowAvatar && (
                                             <div className="message-avatar">
                                                 <img src={avtUrl} alt="Avatar" />
                                             </div>
                                         )}
 
                                         {/* Nếu tin nhắn này là reply, hiển thị tin nhắn được reply bên dưới avatar */}
-                                        {hasReply && (
+                                        {message.replyTo && message.replyTo.content && (
                                             <div className={`reply-container ${isSender ? "sent-reply" : "received-reply"}`}>
-                                                {/* Nếu là người gửi, hiển thị "You replied to [username]" */}
                                                 {isSender ? (
                                                     <div className="reply-header right-align">You replied to {message.replyTo.sender}</div>
                                                 ) : (
                                                     <div className="reply-header left-align">{message.sender} replied to you</div>
                                                 )}
-
-                                                {/* Nội dung tin nhắn được reply (chỉ hiển thị nội dung, không có tên người gửi) */}
                                                 <div className="reply-message">{message.replyTo.content}</div>
                                             </div>
                                         )}
 
                                         {/* Hiển thị tên người gửi CHỈ KHI không phải tin nhắn reply */}
-                                        {!isSender && !isSameSenderAsPrevious && !hasReply && (
-                                            <strong className="message-sender">{message.sender}</strong>
-                                        )}
+                                        {!isSender &&
+                                            (!isSameSenderAsPrevious || isNowPlayingMessage) &&
+                                            !message.replyTo && (
+                                                <strong className="message-sender">{message.sender}</strong>
+                                            )}
 
                                         {/* Nội dung tin nhắn chính */}
                                         <div className={`message-container ${isSender ? "sent-container" : "received-container"}`}>
@@ -1539,11 +1563,6 @@ const ChatRoom = () => {
                                 );
                             })}
                         </ul>
-
-
-
-
-
                     </div>
 
                     {/* Preview reply */}

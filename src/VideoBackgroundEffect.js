@@ -10,7 +10,7 @@ const VideoBackgroundEffect = ({
 }) => {
     const playerRef = useRef(null);
     const lastSyncTime = useRef(0);
-    const syncThreshold = 0.1; // Ngưỡng đồng bộ (giây)
+    const syncThreshold = 0.5; // Ngưỡng đồng bộ (giây)
 
     // Theo dõi và đồng bộ thời gian phát
     useEffect(() => {
